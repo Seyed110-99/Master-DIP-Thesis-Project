@@ -24,11 +24,12 @@ def save_image(output_tensor, iteration):
 
 
 def calculate_psnr(original, denoised):
+    eps = 1e-10  # Small value to avoid log(0)
     mse = np.mean((original - denoised) ** 2)
     if mse == 0:
         return 100
-    max_pixel = 1.0
-    psnr = 10 * np.log10(max_pixel / np.sqrt(mse))
+    max_pixel = np.max(original)  # Use the maximum pixel value from the original image
+    psnr = 10 * np.log10(((max_pixel**2) + eps)/ mse)
     return psnr
 
 os.makedirs("outputs", exist_ok=True)
@@ -39,7 +40,7 @@ image = image/ 255.0
 
 image = resize(image, (image.shape[0]/2, image.shape[1]/2), anti_aliasing=True)
 
-noise_sigma = 0.2
+noise_sigma = 0.05
 
 noisy_image = image + noise_sigma * np.random.rand(*image.shape)
 noisy_image_uint8 = (np.clip(noisy_image, 0, 1) * 255).astype(np.uint8)
@@ -120,4 +121,4 @@ plt.xlabel('Iterations')
 plt.ylabel('PSNR (dB)')
 plt.title('PSNR over Iterations')
 plt.grid(True)
-plt.savefig('psnr_plot.png')
+plt.savefig('outputs/psnr_plot.png')

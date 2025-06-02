@@ -23,11 +23,12 @@ def save_image(output_tensor, iteration):
 
 
 def calculate_psnr(original, denoised):
+    eps = 1e-10  # Small value to avoid division by zero
     mse = np.mean((original - denoised) ** 2)
     if mse == 0:
         return 100
-    max_pixel = 1.0
-    psnr = 20 * np.log10(max_pixel / np.sqrt(mse))
+    max_pixel = np.max(original)  # Use the maximum pixel value from the original image
+    psnr = 10 * np.log10(((max_pixel**2) + eps)/ mse)
     return psnr
 
 image = data.astronaut()
