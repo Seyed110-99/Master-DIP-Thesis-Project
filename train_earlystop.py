@@ -6,6 +6,7 @@ from skimage import data
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.transform import resize
+import json
 
 # Device setting
 device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
@@ -27,7 +28,7 @@ def calculate_psnr(original, denoised):
     if mse == 0:
         return 100
     max_pixel = 1.0
-    psnr = 20 * np.log10(max_pixel / np.sqrt(mse))
+    psnr = 10 * np.log10(max_pixel / np.sqrt(mse))
     return psnr
 
 os.makedirs("outputs", exist_ok=True)
@@ -61,7 +62,7 @@ model = model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0002, eps=1e-6)
 loss_fn = nn.MSELoss()
 
-epochs = 30000
+epochs = 6000
 psnrs = []
 psnrs_gt = []
 
@@ -105,6 +106,11 @@ iterations, psnr_values = zip(*psnrs)
 iterations, psnrgt_values = zip(*psnrs_gt)
 
 # TODO: Store PNSR as json/yaml/numpy (whatever works for you), not only the final image 
+
+with open("outputs/psnr_noisy_reco.json", "w") as f:
+     json.dump(psnrs, f)
+with open("outputs/psnr_gt_reco.json", "w") as f:
+    json.dump(psnrs_gt, f)
 
 plt.plot(iterations, psnr_values, label="PSNR(noisy, reco)")
 plt.plot(iterations, psnrgt_values, label="PSNR(gt, reco)")
