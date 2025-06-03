@@ -66,6 +66,7 @@ class UNet(nn.Module):
 
 
         self.final_conv = nn.Conv2d(32, 3, kernel_size=1)
+        #self.out_act = nn.Sigmoid()
     def forward(self, x):
         # Encoder
         skip1, p1 = self.encoder1(x)
@@ -87,3 +88,5 @@ class UNet(nn.Module):
         # Final convolution
         out = self.final_conv(d1)
         return out
+        # return self.out_act(out)
+
