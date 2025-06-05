@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage.transform import resize
 import json
+import itertools as it
 
 # ----------------------------------------
 # 1) ES‐WMV EarlyStop class (sliding‐window variance)
@@ -97,39 +98,31 @@ def calculate_psnr(original, denoised):
     return 10 * np.log10(((max_pixel**2) + eps) / mse)
 
 
-# ----------------------------------------
-# 3) Main script
-# ----------------------------------------
-if __name__ == "__main__":
-    device = torch.device(
-        "cuda" if torch.cuda.is_available()
-        else "mps" if torch.backends.mps.is_available()
-        else "cpu"
-    )
-    print(f"Using device: {device}")
-
-    os.makedirs("outputs", exist_ok=True)
-
-    # Load + preprocess the “astronaut” image
+def run_dip_with_es_wmv(noise_sigma, max_epochs, window_size, patience, device):
+    """
+    Run the DIP with ES-WMV early stopping.
+    This function is a placeholder for the main training loop.
+    """
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available()
+                              else "mps" if torch.backends.mps.is_available() 
+                              else "cpu")
+        
+   
+    # 1) Load + preprocess “astronaut” (unchanged)
     image = data.astronaut()
-    plt.imsave("outputs/original_image.png", image)
-    image = image / 255.0  # float in [0,1]
-
-    # Resize to half dimensions (integer)
+    image = image / 255.0
     h, w, _ = image.shape
     image = resize(image, (h // 2, w // 2), anti_aliasing=True)
     H, W, _ = image.shape
 
-    # Add uniform noise in [0, noise_sigma]
-    noise_sigma = 0.2
+    # 2) Add uniform noise in [0, noise_sigma]
     noisy_image = image + noise_sigma * np.random.rand(H, W, 3)
     noisy_image = np.clip(noisy_image, 0, 1)
-    noisy_image_uint8 = (noisy_image * 255).astype(np.uint8)
-    plt.imsave("outputs/noisy_image.png", noisy_image_uint8)
-
-    noisy_tensor = torch.from_numpy(noisy_image.transpose(2, 0, 1)).float().unsqueeze(0)  # [1,3,H,W]
+    noisy_tensor = torch.from_numpy(noisy_image.transpose(2, 0, 1)).float().unsqueeze(0).to(device)
     psnr_noisy  = calculate_psnr(image, noisy_image)
-    print("Noisy image PSNR: ", psnr_noisy)
+    print("Noisy image PSNR:", psnr_noisy)
+
 
     # Fixed uniform-[0,1] input noise
     input_noise = torch.rand_like(noisy_tensor)
@@ -139,26 +132,22 @@ if __name__ == "__main__":
 
     # Build UNet and move to device
     model = UNet().to(device)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0002, eps=1e-6)
+
     loss_fn   = nn.MSELoss()
 
-    epochs = 10000
+    epochs = max_epochs
     psnrs    = []                   # will hold (epoch, PSNR(noisy→recon))
     psnrs_gt = []                   # will hold (epoch, PSNR(gt→recon))
     var_history = [None] * epochs   # store EMV at each epoch
 
-    # Instantiate ES‐WMV early‐stopper (sliding‐window size=W, patience=P)
-    W = 100
-    P = 600
-    
-    es_wmv = EarlyStopWMV(size=W, patience=P)
     best_output = None
+    # Instantiate ES‐WMV early‐stopper (sliding‐window size=W, patience=P)
+    es_wmv = EarlyStopWMV(size=window_size, patience=patience)
 
     model.train()
     for epoch in range(epochs):
-        # ——————————————————————————————
-        # 3) DIP forward + backward update
-        # ——————————————————————————————
         output = model(input_noise)       # [1,3,H,W]
         loss   = loss_fn(output, noisy_tensor)
         optimizer.zero_grad()
@@ -167,113 +156,110 @@ if __name__ == "__main__":
 
         print(f"Epoch [{epoch}/{epochs}], Loss: {loss.item():.4f}")
 
-        # ——————————————————————————————
-        # 4) Compute & store PSNR every epoch
-        # ——————————————————————————————
-        out_np   = output.squeeze().detach().cpu().numpy().transpose(1,2,0)  # [H,W,3]
-        noisy_np = noisy_tensor.squeeze().detach().cpu().numpy().transpose(1,2,0)
-
-        # psnr    = calculate_psnr(noisy_np, out_np)
-        psnr_gt = calculate_psnr(image,   out_np)
-        # psnrs.append((epoch, psnr))
+        #Compute PSNR every epoch
+        out_np   = output.squeeze().detach().cpu().numpy().transpose(1, 2, 0)
+        psnr_gt  = calculate_psnr(image,   out_np)
         psnrs_gt.append((epoch, psnr_gt))
-
-        # ——————————————————————————————
-        # 5) Save a PNG every 500 epochs (unchanged)
-        # ——————————————————————————————
+        psnr_noisy = calculate_psnr(noisy_image, out_np)
+        # Save an image every 500 epochs
         if epoch % 500 == 0:
             save_image(output, epoch)
-
-        # ——————————————————————————————
-        # 6) ES‐EMV logic: 
-        #    (a) Let update_av handle epoch==0 initialization
-        #    (b) Then do check_stop, maybe record best_output, maybe break
-        # ——————————————————————————————
-        # Convert “output” into NumPy array [3,H,W] in [0,1]
-        #   (make sure we transpose [H,W,3] → [3,H,W])
-        out_cpu = out_np.transpose(2,0,1)  
-
-        # -------------------------------
-        # 4) ES‐WMV logic: sliding‐window variance
-        # -------------------------------
-        # Convert “output” into NumPy [3,H,W]:
-        out_cpu = out_np.transpose(2, 0, 1)
-
-        # 4a) Push this reconstruction into our fixed-size FIFO buffer:
+        
+        #ES-WMV logic
+        out_cpu = out_np.transpose(2, 0, 1)  # [3,H,W]
         es_wmv.update_buffer(out_cpu)
 
-        # 4b) Once we have W images, compute the windowed variance:
-        if len(es_wmv.buffer) == W:
+        if len(es_wmv.buffer) == window_size:
+
             cur_var = es_wmv.compute_variance()
-
-            # store for plotting later (optional)
-            var_history[epoch] = cur_var  
-
-            # Check if we should stop:
+            var_history[epoch] = cur_var  # store for plotting later
+            
             should_stop = es_wmv.check_stop(cur_var, epoch)
-
-            # If this step gave a brand‐new best variance, save the reconstruction:
             if es_wmv.best_epoch == epoch:
                 best_output = output.detach().cpu().clone()
-
-            # If patience has run out, break out now:
             if should_stop:
                 print(f"ES‐WMV early stop at epoch {epoch}, best_epoch = {es_wmv.best_epoch}")
                 break
+        
 
-    # ——————————————————————————————
-    # 7) After training: use best_output (or fallback to last epoch)
-    # ——————————————————————————————
     if best_output is not None:
         # Note: use es_wmv.best_epoch, not ewmvar.best_epoch
-        save_image(best_output, f"eswmv_best_epoch_{es_wmv.best_epoch}")
+        save_image(best_output, f"eswmv_best_epoch_{es_wmv.best_epoch}_{noise_sigma}_{max_epochs}")
         final_np = best_output.squeeze(0).cpu().numpy().transpose(1,2,0)
+        best_epoch = es_wmv.best_epoch
         print("Final PSNR(gt→recon) at best epoch:",
               f"{calculate_psnr(image, final_np):.2f} dB")
     else:
         print("ES‐WMV never updated best_output; using last epoch’s output.")
         last_output = output.detach().cpu().clone()
-        save_image(last_output, "last_epoch")
+        save_image(last_output, f"last_epoch_{noise_sigma}_{max_epochs}")
         last_np = last_output.squeeze(0).cpu().numpy().transpose(1,2,0)
         print("Final PSNR(gt→recon) at last epoch:",
               f"{calculate_psnr(image, last_np):.2f} dB")
-
-
-    # ——————————————————————————————
-    # 8) Save PSNR curves & plot (unchanged)
-    # ——————————————————————————————
-    # with open("outputs/psnr_noisy_reco.json", "w") as f:
-    #     json.dump(list(zip(*psnrs)), f)
-    with open("outputs/psnr_gt_reco.json", "w") as f:
+    with open(f"outputs/psnr_gt_reco_{noise_sigma}_{max_epochs}.json", "w") as f:
         json.dump(list(zip(*psnrs_gt)), f)
+    iterations = [ep for ep, _ in psnrs_gt]
+    gt_values = [psnr for _, psnr in psnrs_gt]
 
-    if psnrs:
-        iterations, noisy_vals = zip(*psnrs)
-        _, gt_vals             = zip(*psnrs_gt)
+    return iterations, gt_values, var_history, psnr_noisy, best_epoch
+if __name__ == "__main__":
 
-        fig, ax1 = plt.subplots(figsize=(8,5))
-        # ax1.plot(iterations, noisy_vals, label="PSNR(noisy→recon)", color='C0')
-        ax1.plot(iterations, gt_vals,    label="PSNR(gt→recon)",    color='C1')
-        ax1.hlines(psnr_noisy, 0, iterations[-1],
-                   colors='r', label="PSNR(gt→noisy)", linestyle='--')
-        ax1.set_xlabel("Iteration")
-        ax1.set_ylabel("PSNR (dB)")
-        ax1.set_title("PSNR & EMV over Iterations")
-        ax1.grid(True)
+    device = torch.device("cuda" if torch.cuda.is_available() 
+                                  else "mps" if torch.backends.mps.is_available() 
+                                  else "cpu")
+    
+    noise_levels = [0.05, 0.1, 0.2]
+    epoch_settings = [6000, 10000, 15000]
 
-        ax2 = ax1.twinx()
-        var_vals = [(var_history[it] if it < len(var_history) else np.nan)
-                    for it in iterations]
-        ax2.plot(iterations, var_vals, label="Window‐Variance", color='C2', linestyle=':')
-        ax2.set_ylabel("Windowed Variance")
+    fig, (ax_psnr, ax_var) = plt.subplots(1, 2, figsize =(14,5))
 
-        ax2.tick_params(axis='y', labelcolor='C2')
+    color_cycle = it.cycle(['C0','C1','C2','C3','C4'])
+    style_cycle = it.cycle(['-','--',':','-.'])
 
-        lines_1, labels_1 = ax1.get_legend_handles_labels()
-        lines_2, labels_2 = ax2.get_legend_handles_labels()
-        ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left')
 
-        plt.savefig("outputs/psnr_plot.png")
-        plt.close()
+    for noise_sigma in noise_levels:
+        for max_epochs in epoch_settings:
+            color = next(color_cycle)
+            style = next(style_cycle)
 
-    print("Done.")
+            window_size = 100
+            patience = 600
+            
+            iterations, psnr_values, var_history, psnr_noisy, best_epoch = run_dip_with_es_wmv(
+                noise_sigma, max_epochs, window_size, patience, device
+            )
+            # Plot PSNR values
+            ax_psnr.plot(iterations, psnr_values, 
+                         label=f"Noise: {noise_sigma}, Epochs: {max_epochs}",
+                         color=color, linestyle=style)
+            ax_psnr.axhline(psnr_noisy, color=color, linestyle=':', alpha=0.6)
+
+            ax_psnr.axvline(best_epoch, color=color, linestyle=':', alpha=0.6)
+
+            # Plot Window‐Variance vs. iteration
+            var_vals = [var_history[i] if (i < len(var_history) and var_history[i] is not None) else np.nan
+                        for i in iterations]
+            ax_var.plot(iterations, var_vals, label=f"σ={noise_sigma}, E={max_epochs}",
+                color=color, linestyle=style)
+            
+            ax_var.axvline(best_epoch, color=color, linestyle=':', alpha=0.6)
+
+    # Finalize PSNR subplot
+    ax_psnr.set_xlabel("Iteration")
+    ax_psnr.set_ylabel("PSNR (gt→recon) [dB]")
+    ax_psnr.set_title("PSNR (gt→recon) for Different Noise/Epoch Settings")
+    ax_psnr.legend(loc='lower right', fontsize='small')
+    ax_psnr.grid(True)
+
+    # Finalize Variance subplot
+    ax_var.set_xlabel("Iteration")
+    ax_var.set_ylabel("Windowed Variance")
+    ax_var.set_title("Sliding‐Window Variance for Different Noise/Epoch Settings")
+    ax_var.legend(loc='upper right', fontsize='small')
+    ax_var.grid(True)
+
+    plt.tight_layout()
+    plt.savefig("outputs/multiple_settings_comparison.png")
+    plt.close(fig)
+
+    print("All experiments finished. See outputs/multiple_settings_comparison.png.")
