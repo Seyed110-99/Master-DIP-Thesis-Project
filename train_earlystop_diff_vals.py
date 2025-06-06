@@ -9,6 +9,7 @@ from skimage.transform import resize
 import json
 import itertools as it
 
+
 # ----------------------------------------
 # 1) ES‐WMV EarlyStop class (sliding‐window variance)
 # ----------------------------------------
@@ -108,7 +109,8 @@ def run_dip_with_es_wmv(noise_sigma, max_epochs, window_size, patience, device):
                               else "mps" if torch.backends.mps.is_available() 
                               else "cpu")
         
-   
+    os.makedirs("outputs", exist_ok=True)
+
     # 1) Load + preprocess “astronaut” (unchanged)
     image = data.astronaut()
     image = image / 255.0
@@ -138,7 +140,6 @@ def run_dip_with_es_wmv(noise_sigma, max_epochs, window_size, patience, device):
     loss_fn   = nn.MSELoss()
 
     epochs = max_epochs
-    psnrs    = []                   # will hold (epoch, PSNR(noisy→recon))
     psnrs_gt = []                   # will hold (epoch, PSNR(gt→recon))
     var_history = [None] * epochs   # store EMV at each epoch
 
@@ -160,10 +161,10 @@ def run_dip_with_es_wmv(noise_sigma, max_epochs, window_size, patience, device):
         out_np   = output.squeeze().detach().cpu().numpy().transpose(1, 2, 0)
         psnr_gt  = calculate_psnr(image,   out_np)
         psnrs_gt.append((epoch, psnr_gt))
-        psnr_noisy = calculate_psnr(noisy_image, out_np)
+        
         # Save an image every 500 epochs
-        if epoch % 500 == 0:
-            save_image(output, epoch)
+        # if epoch % 500 == 0:
+        #     save_image(output, epoch)
         
         #ES-WMV logic
         out_cpu = out_np.transpose(2, 0, 1)  # [3,H,W]
@@ -213,17 +214,15 @@ if __name__ == "__main__":
 
     fig, (ax_psnr, ax_var) = plt.subplots(1, 2, figsize =(14,5))
 
-    color_cycle = it.cycle(['C0','C1','C2','C3','C4'])
-    style_cycle = it.cycle(['-','--',':','-.'])
+
 
 
     for noise_sigma in noise_levels:
         for max_epochs in epoch_settings:
-            color = next(color_cycle)
-            style = next(style_cycle)
 
+            rand_color = np.random.rand(3, )
             window_size = 100
-            patience = 600
+            patience = 400
             
             iterations, psnr_values, var_history, psnr_noisy, best_epoch = run_dip_with_es_wmv(
                 noise_sigma, max_epochs, window_size, patience, device
@@ -231,18 +230,18 @@ if __name__ == "__main__":
             # Plot PSNR values
             ax_psnr.plot(iterations, psnr_values, 
                          label=f"Noise: {noise_sigma}, Epochs: {max_epochs}",
-                         color=color, linestyle=style)
-            ax_psnr.axhline(psnr_noisy, color=color, linestyle=':', alpha=0.6)
+                         color = rand_color)
+            ax_psnr.axhline(psnr_noisy, color=rand_color, linestyle=':', alpha=0.6)
 
-            ax_psnr.axvline(best_epoch, color=color, linestyle=':', alpha=0.6)
+            ax_psnr.axvline(best_epoch, color=rand_color, linestyle=':', alpha=0.6)
 
             # Plot Window‐Variance vs. iteration
             var_vals = [var_history[i] if (i < len(var_history) and var_history[i] is not None) else np.nan
                         for i in iterations]
             ax_var.plot(iterations, var_vals, label=f"σ={noise_sigma}, E={max_epochs}",
-                color=color, linestyle=style)
+                color=rand_color, linestyle='--')    
             
-            ax_var.axvline(best_epoch, color=color, linestyle=':', alpha=0.6)
+            ax_var.axvline(best_epoch, color=rand_color, linestyle=':', alpha=0.6)
 
     # Finalize PSNR subplot
     ax_psnr.set_xlabel("Iteration")

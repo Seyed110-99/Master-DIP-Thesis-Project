@@ -121,7 +121,7 @@ if __name__ == "__main__":
     H, W, _ = image.shape
 
     # Add uniform noise in [0, noise_sigma]
-    noise_sigma = 0.2
+    noise_sigma = 0.1
     noisy_image = image + noise_sigma * np.random.rand(H, W, 3)
     noisy_image = np.clip(noisy_image, 0, 1)
     noisy_image_uint8 = (noisy_image * 255).astype(np.uint8)
@@ -149,7 +149,7 @@ if __name__ == "__main__":
 
     # Instantiate ES‐WMV early‐stopper (sliding‐window size=W, patience=P)
     W = 100
-    P = 600
+    P = 400
     
     es_wmv = EarlyStopWMV(size=W, patience=P)
     best_output = None
@@ -181,8 +181,8 @@ if __name__ == "__main__":
         # ——————————————————————————————
         # 5) Save a PNG every 500 epochs (unchanged)
         # ——————————————————————————————
-        if epoch % 500 == 0:
-            save_image(output, epoch)
+        # if epoch % 500 == 0:
+        #     save_image(output, epoch)
 
         # ——————————————————————————————
         # 6) ES‐EMV logic: 
