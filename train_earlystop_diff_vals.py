@@ -222,7 +222,7 @@ if __name__ == "__main__":
 
             rand_color = np.random.rand(3, )
             window_size = 100
-            patience = 400
+            patience = 500
             
             iterations, psnr_values, var_history, psnr_noisy, best_epoch = run_dip_with_es_wmv(
                 noise_sigma, max_epochs, window_size, patience, device

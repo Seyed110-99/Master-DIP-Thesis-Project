@@ -72,7 +72,20 @@ class EarlyStopWMV:
             if self.wait_count >= self.patience:
                 self.stop = True
         return self.stop
-    
+
+
+def nabla(x):
+        r"""
+        Applies the finite differences operator associated with tensors of the same shape as x.
+        """
+        b, c, h, w = x.shape
+        u = torch.zeros((b, c, h, w, 2), device=x.device).type(x.dtype)
+        u[:, :, :-1, :, 0] = u[:, :, :-1, :, 0] - x[:, :, :-1]
+        u[:, :, :-1, :, 0] = u[:, :, :-1, :, 0] + x[:, :, 1:]
+        u[:, :, :, :-1, 1] = u[:, :, :, :-1, 1] - x[..., :-1]
+        u[:, :, :, :-1, 1] = u[:, :, :, :-1, 1] + x[..., 1:]
+        return u
+
 # ----------------------------------------
 # 2) Helper functions (unchanged)
 # ----------------------------------------
@@ -160,10 +173,27 @@ if __name__ == "__main__":
         # 3) DIP forward + backward update
         # ——————————————————————————————
         output = model(input_noise)       # [1,3,H,W]
-        loss   = loss_fn(output, noisy_tensor)
+
+        # Note: input_noise is fixed, so output is the only trainable parameter
+        # Calculate loss with MSE + TV regularization
+        # TV regularization: total variation loss
+        # nabla is a finite difference operator that computes gradients
+
+        grad_u = nabla(output)
+        Dx = grad_u[..., 0]
+        Dy = grad_u[..., 1]
+        mag = torch.sqrt(Dx**2 + Dy**2 + 1e-10) # avoid division by zero
+        TV_val = torch.mean(mag)
+        lambda_tv = 0.01  # TV regularization weight
+
+        # Calculate total loss: MSE + TV regularization
+        loss   = loss_fn(output, noisy_tensor) + lambda_tv * TV_val  # MSE + TV regularization
+        
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        
 
         print(f"Epoch [{epoch}/{epochs}], Loss: {loss.item():.4f}")
 
@@ -181,8 +211,8 @@ if __name__ == "__main__":
         # ——————————————————————————————
         # 5) Save a PNG every 500 epochs (unchanged)
         # ——————————————————————————————
-        # if epoch % 500 == 0:
-        #     save_image(output, epoch)
+        if epoch % 1000 == 0:
+            save_image(output, epoch)
 
         # ——————————————————————————————
         # 6) ES‐EMV logic: 
@@ -242,13 +272,12 @@ if __name__ == "__main__":
     # ——————————————————————————————
     # 8) Save PSNR curves & plot (unchanged)
     # ——————————————————————————————
-    # with open("outputs/psnr_noisy_reco.json", "w") as f:
-    #     json.dump(list(zip(*psnrs)), f)
     with open("outputs/psnr_gt_reco.json", "w") as f:
         json.dump(list(zip(*psnrs_gt)), f)
 
     if psnrs_gt:
-        iterations, gt_vals = zip(*psnrs_gt)
+        
+        iterations, gt_vals             = zip(*psnrs_gt)
 
         fig, ax1 = plt.subplots(figsize=(8,5))
         # ax1.plot(iterations, noisy_vals, label="PSNR(noisy→recon)", color='C0')
