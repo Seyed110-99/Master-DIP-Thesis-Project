@@ -122,7 +122,6 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
 
     os.makedirs("outputs", exist_ok=True)
-
     # Load + preprocess the “astronaut” image
     image = data.astronaut()
     plt.imsave("outputs/original_image.png", image)
@@ -132,6 +131,27 @@ if __name__ == "__main__":
     h, w, _ = image.shape
     image = resize(image, (h // 2, w // 2), anti_aliasing=True)
     H, W, _ = image.shape
+
+    
+    # Plotting Dx and Dy
+    x_t = torch.from_numpy(image.transpose(2, 0, 1)).float().unsqueeze(0) # [1,3,H,W]
+    grad_u = nabla(x_t)  # [1,3,H,W,2]
+    Dx = grad_u[0,0,...,0].cpu().numpy()  # [H,W]
+    Dy = grad_u[0,0,...,1].cpu().numpy()  # [H,W]
+
+    fig, (ax1, ax2) = plt.subplots(1,2,figsize=(8,4))
+
+    ax1.imshow(Dx, cmap='gray'); ax1.set_title('Dₓ (vertical edges)'); ax1.axis('off')
+    ax2.imshow(Dy, cmap='gray'); ax2.set_title('Dᵧ (horizontal edges)'); ax2.axis('off')
+    plt.tight_layout()
+    plt.savefig("outputs/gradients.png")
+    plt.close(fig)
+
+    
+
+   
+
+    
 
     # Add uniform noise in [0, noise_sigma]
     noise_sigma = 0.2
@@ -182,20 +202,19 @@ if __name__ == "__main__":
         grad_u = nabla(output)
         Dx = grad_u[..., 0]
         Dy = grad_u[..., 1]
-        mag = torch.sqrt(Dx**2 + Dy**2 + 1e-10) # avoid division by zero
-        TV_val = torch.mean(mag)
-        lambda_tv = 0.01  # TV regularization weight
+        mag = torch.sqrt((Dx**2 + Dy**2).sum(dim=1) + 1e-10) # avoid division by zero
+        TV_val = mag.mean()
+        lambda_tv = 0.01 # TV regularization weight
 
         # Calculate total loss: MSE + TV regularization
-        loss   = loss_fn(output, noisy_tensor) + lambda_tv * TV_val  # MSE + TV regularization
+        mse_loss = loss_fn(output, noisy_tensor)
+        loss   = mse_loss + lambda_tv * TV_val  # MSE + TV regularization
         
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        
-
-        print(f"Epoch [{epoch}/{epochs}], Loss: {loss.item():.4f}")
+        print(f"Epoch [{epoch}/{epochs}], Loss: {loss.item():.4f}, MSE: {mse_loss.item():.4f} , TV: {TV_val:.4f}")
 
         # ——————————————————————————————
         # 4) Compute & store PSNR every epoch
@@ -256,7 +275,7 @@ if __name__ == "__main__":
     # ——————————————————————————————
     if best_output is not None:
         # Note: use es_wmv.best_epoch, not ewmvar.best_epoch
-        save_image(best_output, f"eswmv_best_epoch_{es_wmv.best_epoch}")
+        save_image(best_output, f"eswmv_best_epoch_TV_{es_wmv.best_epoch}")
         final_np = best_output.squeeze(0).cpu().numpy().transpose(1,2,0)
         print("Final PSNR(gt→recon) at best epoch:",
               f"{calculate_psnr(image, final_np):.2f} dB")
@@ -277,7 +296,7 @@ if __name__ == "__main__":
 
     if psnrs_gt:
         
-        iterations, gt_vals             = zip(*psnrs_gt)
+        iterations, gt_vals = zip(*psnrs_gt)
 
         fig, ax1 = plt.subplots(figsize=(8,5))
         # ax1.plot(iterations, noisy_vals, label="PSNR(noisy→recon)", color='C0')
