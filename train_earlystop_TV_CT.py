@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
     # Instantiate ES‐WMV early‐stopper (sliding‐window size=W, patience=P)
     W = 100
-    P = 600
+    P = 10000
     
     es_wmv = EarlyStopWMV(size=W, patience=P)
     best_output = None
@@ -279,7 +279,7 @@ if __name__ == "__main__":
             # If this step gave a brand‐new best variance, save the reconstruction:
             if es_wmv.best_epoch == epoch:
                 best_output = recon.detach().cpu().clone()
-                print(f"ES‐WMV updated best_output at epoch {es_wmv.best_epoch}, windowed variance = {es_wmv.best_score:.4f}")
+                #print(f"ES‐WMV updated best_output at epoch {es_wmv.best_epoch}, windowed variance = {es_wmv.best_score:.4f}")
             # If patience has run out, break out now:
             if should_stop:
                 print(f"ES‐WMV early stop at epoch {epoch}, best_epoch = {es_wmv.best_epoch}")
