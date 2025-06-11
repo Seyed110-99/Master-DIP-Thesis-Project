@@ -44,11 +44,11 @@ class Decoder(nn.Module):
     
 
 class UNet(nn.Module):
-    def __init__(self):
+    def __init__(self, in_ch: int = 3, out_ch: int = 3, use_sigmoid: bool = False):
         super(UNet, self).__init__()
 
         # Encoder
-        self.encoder1 = Encoder(3, 32, kernel_size=5, stride=1, padding=2)
+        self.encoder1 = Encoder(in_ch, 32, kernel_size=5, stride=1, padding=2)
         self.encoder2 = Encoder(32, 64)
         self.encoder3 = Encoder(64, 128)
         self.encoder4 = Encoder(128, 128)
@@ -65,8 +65,9 @@ class UNet(nn.Module):
         self.decoder1 = Decoder(32, 64, 32)
 
 
-        self.final_conv = nn.Conv2d(32, 3, kernel_size=1)
-        #self.out_act = nn.Sigmoid()
+        self.final_conv = nn.Conv2d(32, out_ch, kernel_size=1)
+        self.out_act = nn.Sigmoid() if use_sigmoid else nn.Identity()
+
     def forward(self, x):
         # Encoder
         skip1, p1 = self.encoder1(x)
@@ -86,7 +87,7 @@ class UNet(nn.Module):
         d2 = self.decoder2(d3, skip2, dropout=True)
         d1 = self.decoder1(d2, skip1,dropout=True)
         # Final convolution
-        out = self.final_conv(d1)
+        x = self.final_conv(d1)
+        out = self.out_act(x)
         return out
-        # return self.out_act(out)
 

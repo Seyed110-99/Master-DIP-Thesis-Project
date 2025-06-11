@@ -1,5 +1,6 @@
-import torch
 import os
+os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
+import torch
 import torch.nn as nn
 from Model_arch import UNet  
 from skimage import data
@@ -7,6 +8,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage.transform import resize
 import json
+import deepinv as dinv
+from skimage.transform import iradon
 
 # ----------------------------------------
 # 1) ES‐WMV EarlyStop class (sliding‐window variance)
@@ -96,7 +99,7 @@ def save_image(output_tensor, iteration):
     out = output_tensor.squeeze().detach().cpu().numpy().transpose(1, 2, 0)  # [H,W,3]
     out = np.clip(out, 0, 1)
     out = (out * 255).astype(np.uint8)
-    plt.imsave(f"outputs/TV/output_{iteration}.png", out)
+    plt.imsave(f"outputs/CT/output_{iteration}.png", out)
 
 def calculate_psnr(original, denoised):
     """
@@ -121,10 +124,10 @@ if __name__ == "__main__":
     )
     print(f"Using device: {device}")
 
-    os.makedirs("outputs/TV", exist_ok=True)
+    os.makedirs("outputs/CT", exist_ok=True)
     # Load + preprocess the “astronaut” image
     image = data.astronaut()
-    plt.imsave("outputs/TV/original_image.png", image)
+    plt.imsave("outputs/CT/original_image.png", image)
     image = image / 255.0  # float in [0,1]
 
     # Resize to half dimensions (integer)
@@ -133,9 +136,31 @@ if __name__ == "__main__":
     H, W, _ = image.shape
 
     
+    
     # Plotting Dx and Dy
-    x_t = torch.from_numpy(image.transpose(2, 0, 1)).float().unsqueeze(0) # [1,3,H,W]
-    grad_u = nabla(x_t)  # [1,3,H,W,2]
+    x_true = torch.from_numpy(image[:,:,0]).float()[None, None].to(device)
+    angles_torch = torch.linspace(0, 180, 60, dtype = torch.float32, device=device)  # 60 angles from 0 to 180 degrees
+    
+    physics = dinv.physics.Tomography(
+        img_width = W,
+        angles = angles_torch,
+        device = device,
+        noise_model = dinv.physics.GaussianNoise(sigma = 0.02)
+    )
+    with torch.no_grad():
+        y = physics(x_true)
+    y_np = y.squeeze().cpu().numpy().T  # [H,W]
+    plt.figure(figsize = (6, 4))
+    plt.imshow(y_np, aspect='auto', cmap='gray')
+    plt.xlabel("Projection angle (degrees)")
+    plt.ylabel("Detector index")
+    plt.title("Sinogtram y = A(x_true) + noise")
+    plt.colorbar(label="Measured intensity")
+    plt.tight_layout()
+    plt.savefig("outputs/CT/sinogram.png")
+    plt.close()
+
+    grad_u = nabla(x_true)  # [1,1,H,W,2]
     Dx = grad_u[0,0,...,0].cpu().numpy()  # [H,W]
     Dy = grad_u[0,0,...,1].cpu().numpy()  # [H,W]
 
@@ -144,41 +169,46 @@ if __name__ == "__main__":
     ax1.imshow(Dx, cmap='gray'); ax1.set_title('Dₓ (vertical edges)'); ax1.axis('off')
     ax2.imshow(Dy, cmap='gray'); ax2.set_title('Dᵧ (horizontal edges)'); ax2.axis('off')
     plt.tight_layout()
-    plt.savefig("outputs/TV/gradients.png")
+    plt.savefig("outputs/CT/gradients.png")
     plt.close(fig)
 
-    # Add uniform noise in [0, noise_sigma]
-    noise_sigma = 0.2
-    noisy_image = image + noise_sigma * np.random.rand(H, W, 3)
-    noisy_image = np.clip(noisy_image, 0, 1)
-    noisy_image_uint8 = (noisy_image * 255).astype(np.uint8)
-    plt.imsave("outputs/TV/noisy_image.png", noisy_image_uint8)
+    gt_np  = x_true.squeeze().cpu().numpy()          # NumPy [H,W]
 
-    noisy_tensor = torch.from_numpy(noisy_image.transpose(2, 0, 1)).float().unsqueeze(0)  # [1,3,H,W]
-    psnr_noisy  = calculate_psnr(image, noisy_image)
-    print("Noisy image PSNR: ", psnr_noisy)
+    plt.figure(figsize = (5, 5))
+    plt.imshow(gt_np, cmap='gray', vmin=0, vmax=1)
+    plt.axis('off')
+    plt.title("X_true (ground truth)")
+    plt.tight_layout()
+    plt.savefig("outputs/CT/x_ground_truth.png")
+    plt.close()
 
-    # Fixed uniform-[0,1] input noise
-    input_noise = torch.rand_like(noisy_tensor)
+    y_np   = y.squeeze().cpu().numpy()      
+    angles_np = np.linspace(0, 180, 60, endpoint=False).astype(np.float32)
+    fbp_np = iradon(y_np, theta=angles_np, filter_name='ramp', circle=True, output_size=H)
+    psnr_fbp = calculate_psnr(gt_np, fbp_np)
+    print(f"FBP baseline PSNR: {psnr_fbp:.2f} dB")
 
-    noisy_tensor = noisy_tensor.to(device)
-    input_noise  = input_noise.to(device)
+
+
+    # noisy_tensor = noisy_tensor.to(device)
+    # input_noise  = input_noise.to(device)
+    z = torch.randn(1, 1, H, W, device=device) * 0.1  # random noise tensor [1,3,H,W]
 
     # Build UNet and move to device
-    model = UNet().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.0002, eps=1e-6)
+    model = UNet(in_ch=1, out_ch=1).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, eps = 1e-6)
     loss_fn   = nn.MSELoss()
 
-    epochs = 10000
+    epochs = 15000
     psnrs    = []                   # will hold (epoch, PSNR(noisy→recon))
     psnrs_gt = []                   # will hold (epoch, PSNR(gt→recon))
     var_history = [None] * epochs   # store EMV at each epoch
 
     # Instantiate ES‐WMV early‐stopper (sliding‐window size=W, patience=P)
-    window_size = 100
-    patience = 600
+    W = 100
+    P = 600
     
-    es_wmv = EarlyStopWMV(size=window_size, patience=patience)
+    es_wmv = EarlyStopWMV(size=W, patience=P)
     best_output = None
 
     model.train()
@@ -186,22 +216,21 @@ if __name__ == "__main__":
         # ——————————————————————————————
         # 3) DIP forward + backward update
         # ——————————————————————————————
-        output = model(input_noise)       # [1,3,H,W]
+        recon = model(z)       # [1,1,H,W]
 
-        # Note: input_noise is fixed, so output is the only trainable parameter
-        # Calculate loss with MSE + TV regularization
-        # TV regularization: total variation loss
-        # nabla is a finite difference operator that computes gradients
 
-        grad_u = nabla(output)
+        y_pred = physics.A(recon)
+        mse_loss = loss_fn(y_pred, y)  # MSE loss between noisy and predicted
+
+        grad_u = nabla(recon)
         Dx = grad_u[..., 0]
         Dy = grad_u[..., 1]
         mag = torch.sqrt((Dx**2 + Dy**2).sum(dim=1) + 1e-10) # avoid division by zero
         TV_val = mag.mean()
-        lambda_tv = 0.01 # TV regularization weight
+        lambda_tv = 2e-5 # TV regularization weight
 
         # Calculate total loss: MSE + TV regularization
-        mse_loss = loss_fn(output, noisy_tensor)
+        
         loss   = mse_loss + lambda_tv * TV_val  # MSE + TV regularization
         
         optimizer.zero_grad()
@@ -213,42 +242,34 @@ if __name__ == "__main__":
         # ——————————————————————————————
         # 4) Compute & store PSNR every epoch
         # ——————————————————————————————
-        out_np   = output.squeeze().detach().cpu().numpy().transpose(1,2,0)  # [H,W,3]
-        noisy_np = noisy_tensor.squeeze().detach().cpu().numpy().transpose(1,2,0)
+        rec_np = recon.squeeze().detach().cpu().numpy()
 
-        # psnr    = calculate_psnr(noisy_np, out_np)
-        psnr_gt = calculate_psnr(image,   out_np)
-        # psnrs.append((epoch, psnr))
+        psnr_gt = calculate_psnr(gt_np, rec_np)
         psnrs_gt.append((epoch, psnr_gt))
 
         # ——————————————————————————————
         # 5) Save a PNG every 500 epochs (unchanged)
         # ——————————————————————————————
         if epoch % 1000 == 0:
-            save_image(output, epoch)
+            save_image(torch.cat([recon]*3, dim=1), epoch)
 
         # ——————————————————————————————
         # 6) ES‐EMV logic: 
         #    (a) Let update_av handle epoch==0 initialisation
         #    (b) Then do check_stop, maybe record best_output, maybe break
         # ——————————————————————————————
-        # Convert “output” into NumPy array [3,H,W] in [0,1]
-        #   (make sure we transpose [H,W,3] → [3,H,W])
-        out_cpu = out_np.transpose(2,0,1)  
 
-        # -------------------------------
-        # 4) ES‐WMV logic: sliding‐window variance
-        # -------------------------------
-        # Convert “output” into NumPy [3,H,W]:
-        out_cpu = out_np.transpose(2, 0, 1)
+        # 4) ES‐WMV logic: sliding‐window variance on the single‐channel recon
 
-        # 4a) Push this reconstruction into our fixed-size FIFO buffer:
-        es_wmv.update_buffer(out_cpu)
+        # recon is [1,1,H,W], so squeeze to [H,W].
+        rec_cpu = recon.squeeze().detach().cpu().numpy()  # [H,W]
+        es_wmv.update_buffer(rec_cpu)
 
-        # 4b) Once we have W images, compute the windowed variance:
-        if len(es_wmv.buffer) == window_size:
+        # 4b) Once buffer is full, compute variance and check stop:
+        if len(es_wmv.buffer) == W:
             cur_var = es_wmv.compute_variance()
 
+            
             # store for plotting later (optional)
             var_history[epoch] = cur_var  
 
@@ -257,8 +278,8 @@ if __name__ == "__main__":
 
             # If this step gave a brand‐new best variance, save the reconstruction:
             if es_wmv.best_epoch == epoch:
-                best_output = output.detach().cpu().clone()
-
+                best_output = recon.detach().cpu().clone()
+                print(f"ES‐WMV updated best_output at epoch {es_wmv.best_epoch}, windowed variance = {es_wmv.best_score:.4f}")
             # If patience has run out, break out now:
             if should_stop:
                 print(f"ES‐WMV early stop at epoch {epoch}, best_epoch = {es_wmv.best_epoch}")
@@ -268,24 +289,25 @@ if __name__ == "__main__":
     # 7) After training: use best_output (or fallback to last epoch)
     # ——————————————————————————————
     if best_output is not None:
-        # Note: use es_wmv.best_epoch, not ewmvar.best_epoch
-        save_image(best_output, f"eswmv_best_epoch_TV_{es_wmv.best_epoch}")
-        final_np = best_output.squeeze(0).cpu().numpy().transpose(1,2,0)
-        print("Final PSNR(gt→recon) at best epoch:",
-              f"{calculate_psnr(image, final_np):.2f} dB")
+        # recon_best = best_output[:, :1, ...] #[1, 1, H, W]
+        save_image(best_output.repeat(1,3,1,1), f"best_epoch_{es_wmv.best_epoch}")
+        gt_np = x_true.squeeze().cpu().numpy()
+        rec_np = best_output.squeeze().cpu().numpy()
+        print("Final CT‐DIP PSNR:", calculate_psnr(gt_np, rec_np))
+
     else:
         print("ES‐WMV never updated best_output; using last epoch’s output.")
-        last_output = output.detach().cpu().clone()
-        save_image(last_output, "last_epoch")
-        last_np = last_output.squeeze(0).cpu().numpy().transpose(1,2,0)
+        save_image(recon.repeat(1,3,1,1), "last_epoch")
+        gt_np = x_true.squeeze().cpu().numpy()
+        last_np = recon.squeeze().cpu().numpy()
         print("Final PSNR(gt→recon) at last epoch:",
-              f"{calculate_psnr(image, last_np):.2f} dB")
+              f"{calculate_psnr(gt_np, last_np):.2f} dB")
 
 
     # ——————————————————————————————
     # 8) Save PSNR curves & plot (unchanged)
     # ——————————————————————————————
-    with open("outputs/TV/psnr_gt_reco.json", "w") as f:
+    with open("outputs/CT/psnr_gt_reco.json", "w") as f:
         json.dump(list(zip(*psnrs_gt)), f)
 
     if psnrs_gt:
@@ -293,10 +315,9 @@ if __name__ == "__main__":
         iterations, gt_vals = zip(*psnrs_gt)
 
         fig, ax1 = plt.subplots(figsize=(8,5))
-        # ax1.plot(iterations, noisy_vals, label="PSNR(noisy→recon)", color='C0')
         ax1.plot(iterations, gt_vals,    label="PSNR(gt→recon)",    color='C1')
-        ax1.hlines(psnr_noisy, 0, iterations[-1],
-                   colors='r', label="PSNR(gt→noisy)", linestyle='--')
+        ax1.hlines(psnr_fbp, 0, iterations[-1],
+                    colors='r', label="PSNR(gt→FBP)", linestyle='--')
         ax1.set_xlabel("Iteration")
         ax1.set_ylabel("PSNR (dB)")
         ax1.set_title("PSNR & EMV over Iterations")
@@ -314,7 +335,7 @@ if __name__ == "__main__":
         lines_2, labels_2 = ax2.get_legend_handles_labels()
         ax1.legend(lines_1 + lines_2, labels_1 + labels_2, loc='upper left')
 
-        plt.savefig("outputs/TV/psnr_plot_TV_01.png")
+        plt.savefig("outputs/CT/psnr_plot_TV_01.png")
         plt.close()
 
     print("Done.")

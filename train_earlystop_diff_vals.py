@@ -80,12 +80,12 @@ class EarlyStopWMV:
 # ----------------------------------------
 def save_image(output_tensor, iteration):
     """
-    Save a [1,3,H,W] torch tensor (float in [0,1]) as outputs/output_{iteration}.png.
+    Save a [1,3,H,W] torch tensor (float in [0,1]) as outputs/diff_vals/output_{iteration}.png.
     """
     out = output_tensor.squeeze().detach().cpu().numpy().transpose(1, 2, 0)  # [H,W,3]
     out = np.clip(out, 0, 1)
     out = (out * 255).astype(np.uint8)
-    plt.imsave(f"outputs/output_{iteration}.png", out)
+    plt.imsave(f"outputs/diff_vals/output_{iteration}.png", out)
 
 def calculate_psnr(original, denoised):
     """
@@ -109,7 +109,7 @@ def run_dip_with_es_wmv(noise_sigma, max_epochs, window_size, patience, device):
                               else "mps" if torch.backends.mps.is_available() 
                               else "cpu")
         
-    os.makedirs("outputs", exist_ok=True)
+    os.makedirs("outputs/diff_vals", exist_ok=True)
 
     # 1) Load + preprocess “astronaut” (unchanged)
     image = data.astronaut()
@@ -197,7 +197,7 @@ def run_dip_with_es_wmv(noise_sigma, max_epochs, window_size, patience, device):
         last_np = last_output.squeeze(0).cpu().numpy().transpose(1,2,0)
         print("Final PSNR(gt→recon) at last epoch:",
               f"{calculate_psnr(image, last_np):.2f} dB")
-    with open(f"outputs/psnr_gt_reco_{noise_sigma}_{max_epochs}.json", "w") as f:
+    with open(f"outputs/diff_vals/psnr_gt_reco_{noise_sigma}_{max_epochs}.json", "w") as f:
         json.dump(list(zip(*psnrs_gt)), f)
     iterations = [ep for ep, _ in psnrs_gt]
     gt_values = [psnr for _, psnr in psnrs_gt]
@@ -222,7 +222,7 @@ if __name__ == "__main__":
 
             rand_color = np.random.rand(3, )
             window_size = 100
-            patience = 500
+            patience = 600
             
             iterations, psnr_values, var_history, psnr_noisy, best_epoch = run_dip_with_es_wmv(
                 noise_sigma, max_epochs, window_size, patience, device
@@ -258,7 +258,7 @@ if __name__ == "__main__":
     ax_var.grid(True)
 
     plt.tight_layout()
-    plt.savefig("outputs/multiple_settings_comparison.png")
+    plt.savefig("outputs/diff_vals/multiple_settings_comparison.png")
     plt.close(fig)
 
-    print("All experiments finished. See outputs/multiple_settings_comparison.png.")
+    print("All experiments finished. See outputs/diff_vals/multiple_settings_comparison.png.")
