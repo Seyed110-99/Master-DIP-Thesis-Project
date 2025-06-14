@@ -192,14 +192,14 @@ if __name__ == "__main__":
 
     # noisy_tensor = noisy_tensor.to(device)
     # input_noise  = input_noise.to(device)
-    z = torch.randn(1, 1, H, W, device=device) * 0.1  # random noise tensor [1,3,H,W]
+    z = torch.randn(1, 1, H, W, device=device) * 0.1  # random noise tensor [1,1,H,W]
 
     # Build UNet and move to device
     model = UNet(in_ch=1, out_ch=1).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=2e-4, eps = 1e-6)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, eps = 1e-6)
     loss_fn   = nn.MSELoss()
 
-    epochs = 15000
+    epochs = 25000
     psnrs    = []                   # will hold (epoch, PSNR(noisy→recon))
     psnrs_gt = []                   # will hold (epoch, PSNR(gt→recon))
     var_history = [None] * epochs   # store EMV at each epoch
@@ -250,7 +250,7 @@ if __name__ == "__main__":
         # ——————————————————————————————
         # 5) Save a PNG every 500 epochs (unchanged)
         # ——————————————————————————————
-        if epoch % 1000 == 0:
+        if epoch % 500 == 0:
             save_image(torch.cat([recon]*3, dim=1), epoch)
 
         # ——————————————————————————————
