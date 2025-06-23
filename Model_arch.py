@@ -51,16 +51,17 @@ class UNet(nn.Module):
         self.encoder1 = Encoder(in_ch, 32, kernel_size=5, stride=1, padding=2)
         self.encoder2 = Encoder(32, 64)
         self.encoder3 = Encoder(64, 128)
-        self.encoder4 = Encoder(128, 128)
-        self.encoder5 = Encoder(128, 128)
-        
+        self.encoder4 = Encoder(128, 256)
+        self.encoder5 = Encoder(256, 256)
+        self.encoder6 = Encoder(256, 256)
         # Bottleneck
-        self.bottleneck = ConvBlock(128, 128)
+        self.bottleneck = ConvBlock(256, 256)
 
         # Decoder
-        self.decoder5 = Decoder(128 ,128, 128)
-        self.decoder4 = Decoder(128 ,128, 128)
-        self.decoder3 = Decoder(128 ,128, 128)
+        self.decoder6 = Decoder(256, 256, 256)
+        self.decoder5 = Decoder(256 ,256, 256)
+        self.decoder4 = Decoder(256 ,256, 256)
+        self.decoder3 = Decoder(128 ,256, 128)
         self.decoder2 = Decoder(64, 128, 64)
         self.decoder1 = Decoder(32, 64, 32)
 
@@ -75,13 +76,14 @@ class UNet(nn.Module):
         skip3, p3 = self.encoder3(p2)
         skip4, p4 = self.encoder4(p3)
         skip5, p5 = self.encoder5(p4)
-        
+        skip6, p6 = self.encoder6(p5)
+
         # Bottleneck
-        b = self.bottleneck(p5)
+        b = self.bottleneck(p6)
 
         # Decoder
-
-        d5 = self.decoder5(b, skip5)
+        d6 = self.decoder6(b, skip6)
+        d5 = self.decoder5(d6, skip5)
         d4 = self.decoder4(d5, skip4)
         d3 = self.decoder3(d4, skip3)
         d2 = self.decoder2(d3, skip2, dropout=True)
