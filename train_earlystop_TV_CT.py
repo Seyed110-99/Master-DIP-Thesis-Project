@@ -216,13 +216,14 @@ if __name__ == "__main__":
         # ——————————————————————————————
         # 3) DIP forward + backward update
         # ——————————————————————————————
-        recon = model(z)       # [1,1,H,W]
+       
+        recon = model(z)# [1,1,H,W]
 
 
         y_pred = physics.A(recon)
         mse_loss = loss_fn(y_pred, y)  # MSE loss between noisy and predicted
 
-        grad_u = nabla(recon)
+        grad_u = nabla(y_pred)
         Dx = grad_u[..., 0]
         Dy = grad_u[..., 1]
         mag = torch.sqrt((Dx**2 + Dy**2).sum(dim=1) + 1e-10) # avoid division by zero
