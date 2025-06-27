@@ -39,11 +39,15 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
 
     PNSR = dinv.metric.PSNR(max_pixel=torch.max(walnut_data).item())(walnut_data, walnut_fbp).item()
     print(f"PSNR for {name}: {PNSR:.2f} dB")
-    
+
+    # Display the image of FBP reconstruction and sinogram
+
+    # Display the FBP
     ax1.imshow(walnut_np, cmap='gray', vmin=0, vmax=1)
     ax1.set_title(f"FBP Reconstruction ({name}), PSNR: {PNSR:.2f} dB")
     ax1.axis('off')
 
+    # Display the sinogram
     ax2.imshow(sinogram_np, cmap='gray', vmin=0, vmax=1)
     ax2.set_title(f"Sinogram ({name})")
     ax2.axis('off')
@@ -53,14 +57,10 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
 
     torch.save(sinogram, f"results/walnut_{name}.pt")
 
-    
-    
-
     return sinogram
 
-
-
 if __name__ == "__main__":
+    # Define the noise levels and corresponding names
     names = ["no_noise", "low_noise", "high_noise"]
     sigmas = [0.0, 0.2, 0.5]
 
