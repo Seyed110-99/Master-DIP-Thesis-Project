@@ -3,4 +3,3 @@ outputs/
 train_feedback.py
 old_code.py
 checkpoints
-walnut.pt
