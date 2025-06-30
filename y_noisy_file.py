@@ -48,10 +48,13 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
     ax1.axis('off')
 
     # Display the sinogram
-    ax2.imshow(sinogram_np, cmap='gray', vmin=0, vmax=1)
+    ax2.imshow(sinogram_np.T, cmap='gray', aspect='auto')
     ax2.set_title(f"Sinogram ({name})")
+    ax2.set_xlabel("Projection index")
+    ax2.set_ylabel("Detector pixel")
     ax2.axis('off')
-
+    
+    plt.suptitle(f"Walnut FBP and Sinogram Comparison ({name})", fontsize=16)
     plt.tight_layout()
     plt.savefig(f"results/walnut_{name}_comparison.png")
 
@@ -62,7 +65,7 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
 if __name__ == "__main__":
     # Define the noise levels and corresponding names
     names = ["no_noise", "low_noise", "high_noise"]
-    sigmas = [0.0, 0.2, 0.5]
+    sigmas = [0.0, 0.9, 5.0]
 
     for name, sigma in zip(names, sigmas):
         image_path = "walnut.pt"

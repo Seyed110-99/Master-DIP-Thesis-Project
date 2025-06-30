@@ -34,11 +34,11 @@ def classic_TV_solver(steps, lambs, image_path, noise_level = "none"):
         sigma = 0.0
 
     if noise_level == "low":
-        sigma = 0.2
+        sigma = 0.9
 
     else:
-        sigma = 0.5
-    
+        sigma = 5.0
+
 
     physics = dinv.physics.Tomography(
         img_width=256, 
@@ -71,6 +71,8 @@ def classic_TV_solver(steps, lambs, image_path, noise_level = "none"):
 
             params_algo = {"stepsize": stepsize, "lambda": lamb}
 
+           
+            
             model = optim_builder(
                 iteration = "PGD",
                 prior = prior,
@@ -80,7 +82,7 @@ def classic_TV_solver(steps, lambs, image_path, noise_level = "none"):
                 verbose=verbose,
                 params_algo=params_algo,
             )
-            
+
             x_model, metrics = model(
                 walnut_data,
                 physics = physics,
@@ -90,12 +92,13 @@ def classic_TV_solver(steps, lambs, image_path, noise_level = "none"):
 
             rec_np = x_model.squeeze().detach().cpu().numpy()
             plt.imshow(rec_np, cmap='gray', vmin=0, vmax=1)
-            plt.title(f"TV‐PGD σ={sigma}, λ={lamb:.1e}")
+            plt.title(f"TV‐PGD σ={sigma}, λ={lamb:.1e}, stepsize={stepsize:.1e}, PSNR={metrics['psnr'][-1][-1]:.2f} dB for noise level {noise_level}")
             plt.axis('off')
             os.makedirs(f"results/classic/tv_sigma_{noise_level}", exist_ok=True)
-            plt.savefig(f"results/classic/tv_sigma_{noise_level}/rec_lambda_{lamb:.0e}.png", dpi=200)
+            plt.savefig(f"results/classic/tv_sigma_{noise_level}/rec_lambda_{lamb:.0e}_step_size{stepsize:.0e}.png", dpi=200)
             plt.close()
 
+            print(metrics['psnr'][-1][0])
             psnr_curve = metrics['psnr'][-1] # Get the PSNR curve from the metrics
             # store the full PSNR-vs-iteration curve for this lambda
             psnr_curves[lamb] = psnr_curve
@@ -119,7 +122,7 @@ def classic_TV_solver(steps, lambs, image_path, noise_level = "none"):
         plt.plot(curve, label=f"λ={lamb:.0e}")
     plt.xlabel("PGD iteration")
     plt.ylabel("PSNR [dB]")
-    plt.title(f"PSNR trajectories (noise={sigma}), best lambda={best_lamb:.0e} and highest PSNR={best_psnr:.2f} dB for noise level {noise_level}")
+    plt.title(f"PSNR trajectories (noise={sigma}), best lambda={best_lamb:.0e}, best step size={best_stepsize:.0e} and highest PSNR={best_psnr:.2f} dB for noise level {noise_level}")
     plt.legend()
     plt.tight_layout()
     plt.savefig(f"results/classic/tv_sigma_{noise_level}/psnr_trajectories.png", dpi=200)
@@ -128,9 +131,9 @@ def classic_TV_solver(steps, lambs, image_path, noise_level = "none"):
     return best_stepsize, best_lamb, best_psnr
 
 if __name__ == "__main__":
-    # steps = [1, 1e-1, 1e-2, 1e-3, 1e-4]
-    steps = [1e-4]
-    lambs = [1e-2, 1e-3, 1e-4]
+    
+    steps = [1e-4, 1e-5, 1e-6]
+    lambs = [1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
 
     image_path_no_noise = "results/walnut_no_noise.pt"
     best_stepsize_no, best_lamb_no, best_psnr_no = classic_TV_solver(steps, lambs, image_path_no_noise, noise_level="none")
