@@ -121,6 +121,16 @@ def classic_TV_solver(steps, lambs, image_path, noise_level = "none"):
     plt.savefig(f"results/classic/tv_sigma_{noise_level}/psnr_trajectories_{best_lamb}_{best_stepsize}_{noise_level}.png", dpi=200)
     plt.close()
 
+    serializable = {
+        f"{step_size:.0e}_{lamb:.0e}": curve
+        for (step_size, lamb), curve in psnr_curves.items()
+    }
+    out_dir = f"results/classic/tv_sigma_{noise_level}"
+    os.makedirs(out_dir, exist_ok=True)
+    with open(f"{out_dir}/psnr_curves.json", "w") as fp:
+        json.dump(serializable, fp, indent=2)
+
+
     return best_stepsize, best_lamb, best_psnr
 
 if __name__ == "__main__":

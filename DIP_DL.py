@@ -17,7 +17,7 @@ import odl
 from odl.phantom import ellipsoid_phantom
 from odl import uniform_discr
 from Model_arch import UNet
-import json 
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -175,8 +175,8 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     out_dir = f"results/DIP_dl/{model_type}/{noise_level}/{input_type}"
     os.makedirs(out_dir, exist_ok=True)
 
-    # JSON only allows string keys, so convert lambdas to strings
-    json_curves = { f"{l}": curve for l, curve in psnr_curves.items() }
+   
+    json_curves = { f"{l:.0e}": curve for l, curve in psnr_curves.items() }
     with open(f"{out_dir}/psnr_curves.json", "w") as fp:
         json.dump(json_curves, fp, indent=2)
   
