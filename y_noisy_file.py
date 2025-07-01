@@ -65,7 +65,7 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
 if __name__ == "__main__":
     # Define the noise levels and corresponding names
     names = ["no_noise", "low_noise", "high_noise"]
-    sigmas = [0.0, 0.9, 5.0]
+    sigmas = [0.0, 0.6, 1.1]
 
     for name, sigma in zip(names, sigmas):
         image_path = "walnut.pt"

@@ -17,7 +17,7 @@ import odl
 from odl.phantom import ellipsoid_phantom
 from odl import uniform_discr
 from Model_arch import UNet
-
+import json 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -40,7 +40,6 @@ physics_raw = dinv.physics.Tomography(
         img_width=256, 
         angles=angles, 
         device=device,
-        noise_model=dinv.physics.GaussianNoise(sigma=0.1),
     )
 
 class OperatorFunction(torch.autograd.Function):
@@ -131,7 +130,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
         criterion = nn.MSELoss()
 
-        epochs = 10000
+        epochs = 5000
 
         for epoch in range(epochs):
 
@@ -171,6 +170,17 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         plt.close()
 
     print(f"Best PSNR: {best_psnr:.2f} dB for λ={best_lamb:.1e}")
+
+    
+    out_dir = f"results/DIP_dl/{model_type}/{noise_level}/{input_type}"
+    os.makedirs(out_dir, exist_ok=True)
+
+    # JSON only allows string keys, so convert lambdas to strings
+    json_curves = { f"{l}": curve for l, curve in psnr_curves.items() }
+    with open(f"{out_dir}/psnr_curves.json", "w") as fp:
+        json.dump(json_curves, fp, indent=2)
+  
+
 
     best_psnr_curve = psnr_curves[best_lamb]
 
