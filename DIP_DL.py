@@ -100,6 +100,11 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         x_in = torch.randn((1,1,Height,Width), device=device)
     elif input_type == "FBP":
         x_in = physics_raw.A_dagger(walnut_data)
+        mean_x = x_in.mean()
+        std_x = x_in.std()
+        x_in = (x_in - mean_x) / (std_x + 1e-10) 
+        x_in = torch.clamp(x_in, 0, 1)
+        
     elif input_type == "BP":
         x_in = physics_raw.A_adjoint(walnut_data)
     else:
@@ -190,7 +195,7 @@ if __name__ == "__main__":
     models      = ["unet", "ellipses", "disk"]
     noise_levels= ["none", "low", "high"]
     input_types = ["z", "FBP", "BP"]
-    lambs       = [1, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+    lambs       = [2, 1.5, 1, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
 
     for model_type in models:
         for noise_level in noise_levels:

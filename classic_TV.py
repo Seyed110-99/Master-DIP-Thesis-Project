@@ -136,7 +136,7 @@ def classic_TV_solver(steps, lambs, image_path, noise_level = "none"):
 if __name__ == "__main__":
     
     steps = [1e-4, 1e-5, 1e-6]
-    lambs = [1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
+    lambs = [2e0, 1e0, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5]
 
     image_path_no_noise = "results/walnut_no_noise.pt"
     best_stepsize_no, best_lamb_no, best_psnr_no = classic_TV_solver(steps, lambs, image_path_no_noise, noise_level="none")
