@@ -166,7 +166,12 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
             x_pred_np = x_pred.squeeze().detach().cpu().numpy()
             x_GT_np = walnut_GT.squeeze().detach().cpu().numpy()
-            ssim_value = skimage.metrics.structural_similarity(x_pred_np, x_GT_np, data_range= x_GT_np.max() - x_GT_np.min())
+            ssim_value = skimage.metrics.structural_similarity(
+                x_pred_np, 
+                x_GT_np, 
+                data_range= x_GT_np.max() - x_GT_np.min()
+                )
+            
             ssim_curves[lamb].append(ssim_value)
 
             if epoch % 100 == 0:
@@ -185,8 +190,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
         plt.close()
 
-    print(f"Best PSNR: {best_psnr:.2f} dB for λ={best_lamb:.1e}")
-
+    print(f"Best PSNR: {best_psnr:.2f}, Best SSIM: {best_ssim:.4f}, dB for λ={best_lamb:.1e}")
     
     out_dir = f"results/DIP_dl/{model_type}/{noise_level}/{input_type}"
     os.makedirs(out_dir, exist_ok=True)
@@ -204,7 +208,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     best_psnr_curve = psnr_curves[best_lamb]
     best_ssim_curve = ssim_curves[best_lamb]
 
-    return best_lamb, best_psnr, best_psnr_curve, best_ssim_curve
+    return best_lamb, best_psnr, best_psnr_curve, best_ssim_curve, best_ssim
 
 if __name__ == "__main__":
     models      = ["ellipses"]
@@ -219,9 +223,10 @@ if __name__ == "__main__":
             best_psnrs = {}
             best_lambdas = {}
             best_ssims = {}
+            best_ssims_curves = {}
 
             for input_type in input_types:
-                best_lamb, best_psnr, best_curve, best_ssim = ellipses_DIP_dl(
+                best_lamb, best_psnr, best_curve, best_ssim_curve, best_ssim = ellipses_DIP_dl(
                     lambs,
                     noise_level=noise_level,
                     model_type=model_type,
@@ -230,6 +235,7 @@ if __name__ == "__main__":
                 best_curves[input_type] = best_curve
                 best_psnrs[input_type] = best_psnr
                 best_lambdas[input_type] = best_lamb
+                best_ssims_curves[input_type] = best_ssim_curve
                 best_ssims[input_type] = best_ssim
 
             # find which input_type had the overall highest PSNR
@@ -257,7 +263,7 @@ if __name__ == "__main__":
 
             # Save the best SSIM curve
             plt.figure(figsize=(6,4))
-            for input_type, curve in best_ssims.items():
+            for input_type, curve in best_ssims_curves.items():
                 plt.plot(curve, label=input_type)
             plt.xlabel("Iterations")
             plt.ylabel("SSIM")
