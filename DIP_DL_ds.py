@@ -166,12 +166,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
             x_pred_np = x_pred.squeeze().detach().cpu().numpy()
             x_GT_np = walnut_GT.squeeze().detach().cpu().numpy()
-            ssim_value = skimage.metrics.structural_similarity(
-                x_pred_np, 
-                x_GT_np, 
-                data_range= x_GT_np.max() - x_GT_np.min()
-                )
-            
+            ssim_value = skimage.metrics.structural_similarity(x_pred_np, x_GT_np, data_range= x_GT_np.max() - x_GT_np.min())
             ssim_curves[lamb].append(ssim_value)
 
             if epoch % 100 == 0:
@@ -212,7 +207,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     return best_lamb, best_psnr, best_psnr_curve, best_ssim_curve
 
 if __name__ == "__main__":
-    models      = ["unet", "ellipses", "disk"]
+    models      = ["disk"]
     noise_levels= ["none", "low", "high"]
     input_types = ["z", "FBP", "BP"]
     lambs       = [10, 5, 2, 1, 1e-1, 1e-2, 1e-3]
