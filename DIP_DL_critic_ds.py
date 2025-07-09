@@ -144,8 +144,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
             
             x_critic = x_pred - x_pred.mean()/ (x_pred.std() + 1e-10)  
             x_critic = torch.clamp(x_critic, 0, 1)
-            # else:
-            #     x_critic = x_pred
+            
 
             
             loss = mse - lamb * critic(x_critic).mean()
