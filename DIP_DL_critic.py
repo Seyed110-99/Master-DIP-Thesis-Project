@@ -18,21 +18,9 @@ from odl.phantom import ellipsoid_phantom
 from odl import uniform_discr
 from Model_arch import UNet
 import skimage 
-
+from Model_arch_reg import Net
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
-
-def nabla(x):
-        r"""
-        Applies the finite differences operator associated with tensors of the same shape as x.
-        """
-        b, c, h, w = x.shape
-        u = torch.zeros((b, c, h, w, 2), device=x.device).type(x.dtype)
-        u[:, :, :-1, :, 0] = u[:, :, :-1, :, 0] - x[:, :, :-1]
-        u[:, :, :-1, :, 0] = u[:, :, :-1, :, 0] + x[:, :, 1:]
-        u[:, :, :, :-1, 1] = u[:, :, :, :-1, 1] - x[..., :-1]
-        u[:, :, :, :-1, 1] = u[:, :, :, :-1, 1] + x[..., 1:]
-        return u
 
 angles = torch.linspace(0, 180, 60, device=device)
 
@@ -103,6 +91,8 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         x_in = torch.randn((1,1,Height,Width), device=device)
     elif input_type == "FBP":
         x_in = physics_raw.A_dagger(walnut_data)
+        critic = Net(256, 1).to(device)
+        critic.load_state_dict(torch.load("checkpoints/pre_model_reg_FBP.pth", map_location=device))
         
     elif input_type == "BP":
         
@@ -111,7 +101,8 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         std_x = x_in.std()
         x_in = (x_in - mean_x) / (std_x + 1e-10) 
         x_in = torch.clamp(x_in, 0, 1)
-        
+        critic = Net(256, 1).to(device)
+        critic.load_state_dict(torch.load("checkpoints/pre_model_reg_BP.pth", map_location=device))
     else:
         raise ValueError(f"Unknown input_type {input_type}")
 
@@ -148,15 +139,16 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
             
             x_pred = model(x_in)
             y_pred = physics_new.forward(x_pred)
-
+            
             mse = criterion(y_pred, walnut_data)
+            
+            x_critic = x_pred - x_pred.mean()/ (x_pred.std() + 1e-10)  
+            x_critic = torch.clamp(x_critic, 0, 1)
+            # else:
+            #     x_critic = x_pred
 
-            grad_u = nabla(y_pred)
-            Dx = grad_u[..., 0]
-            Dy = grad_u[..., 1]
-            mag = torch.sqrt((Dx**2 + Dy**2).sum(dim=1) + 1e-10)
-
-            loss = mse + lamb * torch.mean(mag)
+            
+            loss = mse - lamb * critic(x_critic).mean()
             loss.backward()
             optimizer.step()
 
@@ -186,13 +178,13 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         plt.imshow(x_pred_np, cmap='gray', vmin=0, vmax=1)
         plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={lamb:.1e}, PSNR: {psnr_value:.2f} dB")
         plt.axis('off')
-        os.makedirs(f"results/DIP_dl/{model_type}/{noise_level}", exist_ok=True)
-        plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
+        os.makedirs(f"results/DIP_dl_critic/{model_type}/{noise_level}", exist_ok=True)
+        plt.savefig(f"results/DIP_dl_critic/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
         plt.close()
 
     print(f"Best PSNR: {best_psnr:.2f}, Best SSIM: {best_ssim:.4f}, dB for λ={best_lamb:.1e}")
-    
-    out_dir = f"results/DIP_dl/{model_type}/{noise_level}/{input_type}"
+
+    out_dir = f"results/DIP_dl_critic/{model_type}/{noise_level}/{input_type}"
     os.makedirs(out_dir, exist_ok=True)
 
    
@@ -211,10 +203,17 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     return best_lamb, best_psnr, best_psnr_curve, best_ssim_curve, best_ssim
 
 if __name__ == "__main__":
-    models      = ["disk"]
+    models      = ["ellipses", "disk"]
     noise_levels= ["none", "low", "high"]
-    input_types = ["z", "FBP", "BP"]
-    lambs       = [50, 10, 5, 2, 1, 1e-1, 1e-2, 1e-3, 1e-4]
+    input_types = ["BP", "FBP"]
+    lambs       = [1e2, 1e1, 1e0, 0,1e-1, 1e-2, 1e-3]
+    
+    sigma_max = 1.1
+    white = torch.randn(1, 1, 256, 256, device=device) * sigma_max
+    At_white = physics_raw.A(white)
+    At_white = physics_raw.A_adjoint(At_white)
+    lambda_adv = 2 * (sigma_max ** 2) * At_white.sum().item()
+    lambs.append(lambda_adv)
 
     for model_type in models:
         for noise_level in noise_levels:
@@ -256,7 +255,7 @@ if __name__ == "__main__":
                 f"{model_type} ({noise_level} noise) → best init={best_input}, λ={top_lambda:.1e}, PSNR={top_psnr:.2f} dB"
             )
             plt.legend()
-            out_dir = f"results/DIP_dl/{model_type}/{noise_level}"
+            out_dir = f"results/DIP_dl_critic/{model_type}/{noise_level}"
             os.makedirs(out_dir, exist_ok=True)
             plt.savefig(f"{out_dir}/psnr_compare_{model_type}_{noise_level}.png", dpi=200)
             plt.close()
