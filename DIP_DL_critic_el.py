@@ -252,7 +252,7 @@ if __name__ == "__main__":
             plt.xlabel("Iterations")
             plt.ylabel("PSNR [dB]")
             plt.title(
-                f"{model_type} ({noise_level} noise) → best init={best_input}, λ={top_lambda:.1e}, PSNR={top_psnr:.2f} dB"
+                f"{model_type} ({noise_level} noise), λ={top_lambda:.1e}, PSNR={top_psnr:.2f} dB"
             )
             plt.legend()
             out_dir = f"results/DIP_dl_critic/{model_type}/{noise_level}"
@@ -267,7 +267,7 @@ if __name__ == "__main__":
             plt.xlabel("Iterations")
             plt.ylabel("SSIM")
             plt.title(
-                f"{model_type} ({noise_level} noise) → best init={best_input}, λ={top_lambda:.1e}, SSIM={top_ssim:.4f}"
+                f"{model_type} ({noise_level} noise), λ={top_lambda:.1e}, SSIM={top_ssim:.4f}"
             )
             plt.legend()
             plt.savefig(f"{out_dir}/ssim_compare_{model_type}_{noise_level}.png", dpi=200)
