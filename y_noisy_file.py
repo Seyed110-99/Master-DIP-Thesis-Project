@@ -28,14 +28,16 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
     
     sinogram = physics_raw(walnut_data)
 
-    
+   
     walnut_fbp = physics_raw.A_dagger(sinogram)
 
+    walnut_bp = physics_raw.A_adjoint(sinogram)
+
     walnut_np = walnut_fbp.squeeze().detach().cpu().numpy()
-
     sinogram_np = sinogram.squeeze().detach().cpu().numpy()
+    walnut_bp_np = walnut_bp.squeeze().detach().cpu().numpy()
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(12, 4))
 
     PNSR = dinv.metric.PSNR(max_pixel=torch.max(walnut_data).item())(walnut_data, walnut_fbp).item()
     print(f"PSNR for {name}: {PNSR:.2f} dB")
@@ -49,11 +51,16 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
 
     # Display the sinogram
     ax2.imshow(sinogram_np.T, cmap='gray', aspect='auto')
-    ax2.set_title(f"Sinogram ({name})")
+    ax2.set_title(f"Sinogram ({name})",)
     ax2.set_xlabel("Projection index")
     ax2.set_ylabel("Detector pixel")
     ax2.axis('off')
     
+    ax3.imshow(walnut_bp_np, cmap='gray')
+    ax3.set_title(f"Backprojection ({name})")
+    ax3.axis('off')
+    
+
     plt.suptitle(f"Walnut FBP and Sinogram Comparison ({name})", fontsize=16)
     plt.tight_layout()
     plt.savefig(f"results/walnut_{name}_comparison.png")
@@ -66,8 +73,21 @@ if __name__ == "__main__":
     # Define the noise levels and corresponding names
     names = ["no_noise", "low_noise", "high_noise"]
     sigmas = [0.0, 0.6, 1.1]
-
+    sinograms = []
     for name, sigma in zip(names, sigmas):
         image_path = "walnut.pt"
         print(f"Processing {name} with sigma {sigma}...")
-        image_noise_save(image_path, sigma=sigma, name=name)
+        # image_noise_save(image_path, sigma=sigma, name=name)
+        sinogram = image_noise_save(image_path, sigma=sigma, name=name)
+        sinograms.append(sinogram)
+    print("Sinograms saved for all noise levels.")
+
+    sinograms = [s.squeeze().detach().cpu().numpy() for s in sinograms]
+    subtract_sinogram = sinograms[-1] - sinograms[0]
+    plt.close()
+    plt.figure(figsize=(6, 6))
+    plt.imshow(subtract_sinogram, cmap='gray')
+    plt.title("Difference between high noise and no noise sinograms")
+    plt.axis('off')
+    plt.savefig("results/sinogram_difference.png")
+    

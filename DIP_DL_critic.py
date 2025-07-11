@@ -103,6 +103,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         x_in = torch.clamp(x_in, 0, 1)
         critic = Net(256, 1).to(device)
         critic.load_state_dict(torch.load("checkpoints/pre_model_reg_BP.pth", map_location=device))
+    
     else:
         raise ValueError(f"Unknown input_type {input_type}")
 
@@ -148,7 +149,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
             #     x_critic = x_pred
 
             
-            loss = mse - lamb * critic(x_critic).mean()
+            loss = mse + lamb * critic(x_critic).mean()
             loss.backward()
             optimizer.step()
 
