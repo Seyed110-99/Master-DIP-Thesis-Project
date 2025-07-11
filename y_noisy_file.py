@@ -28,7 +28,6 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
     
     sinogram = physics_raw(walnut_data)
 
-   
     walnut_fbp = physics_raw.A_dagger(sinogram)
 
     walnut_bp = physics_raw.A_adjoint(sinogram)
@@ -57,7 +56,7 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
     ax2.axis('off')
     
     ax3.imshow(walnut_bp_np, cmap='gray')
-    ax3.set_title(f"Backprojection ({name})")
+    ax3.set_title(f"BP Reconstruction ({name})")
     ax3.axis('off')
     
 
