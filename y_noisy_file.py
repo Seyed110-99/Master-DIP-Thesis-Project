@@ -45,7 +45,7 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
 
     # Display the FBP
     ax1.imshow(walnut_np, cmap='gray', vmin=0, vmax=1)
-    ax1.set_title(f"FBP Reconstruction ({name}), PSNR: {PNSR:.2f} dB")
+    ax1.set_title(f"FBP({name}), PSNR: {PNSR:.2f} dB")
     ax1.axis('off')
 
     # Display the sinogram
@@ -56,7 +56,7 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
     ax2.axis('off')
     
     ax3.imshow(walnut_bp_np, cmap='gray')
-    ax3.set_title(f"BP Reconstruction ({name})")
+    ax3.set_title(f"BP({name})")
     ax3.axis('off')
     
 
@@ -70,8 +70,8 @@ def image_noise_save(image_path, sigma = 0.0, name = "no_noise"):
 
 if __name__ == "__main__":
     # Define the noise levels and corresponding names
-    names = ["no_noise", "low_noise", "high_noise"]
-    sigmas = [0.0, 0.6, 1.1]
+    names = ["no_noise", "low_noise", "high_noise", "very_high_noise"]
+    sigmas = [0.0, 0.6, 1.1, 5.0]
     sinograms = []
     for name, sigma in zip(names, sigmas):
         image_path = "walnut.pt"

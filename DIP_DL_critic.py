@@ -73,8 +73,12 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         walnut_data = torch.load("results/walnut_no_noise.pt", map_location=device)
     elif noise_level == "low":
         walnut_data = torch.load("results/walnut_low_noise.pt", map_location=device)
+    elif noise_level == "high":
+        walnut_data = torch.load("results/walnut_high_noise.pt", map_location=device)
+    elif noise_level == "very_high":
+        walnut_data = torch.load("results/walnut_very_high_noise.pt", map_location=device)
     else:
-       walnut_data = torch.load("results/walnut_high_noise.pt", map_location=device)
+        raise ValueError(f"Unknown noise level {noise_level}")
 
     walnut_data = walnut_data.to(device)
     Height, Width = walnut_GT.shape[-2], walnut_GT.shape[-1]
@@ -143,10 +147,11 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
             
             mse = criterion(y_pred, walnut_data)
             
-            x_critic = x_pred - x_pred.mean()/ (x_pred.std() + 1e-10)  
-            x_critic = torch.clamp(x_critic, 0, 1)
-            # else:
-            #     x_critic = x_pred
+            if input_type == "BP":
+                x_critic = x_pred - x_pred.mean()/ (x_pred.std() + 1e-10)  
+                x_critic = torch.clamp(x_critic, 0, 1)
+            else:
+                x_critic = x_pred
 
             
             loss = mse + lamb * critic(x_critic).mean()
@@ -177,7 +182,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
         x_pred_np = x_pred.squeeze().detach().cpu().numpy()
         plt.imshow(x_pred_np, cmap='gray', vmin=0, vmax=1)
-        plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={lamb:.1e}, PSNR: {psnr_value:.2f} dB")
+        plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={lamb:.1e}, PSNR: {psnr_value:.2f} dB, SSIM: {ssim_value:.4f}")
         plt.axis('off')
         os.makedirs(f"results/DIP_dl_critic/{model_type}/{noise_level}", exist_ok=True)
         plt.savefig(f"results/DIP_dl_critic/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
@@ -205,7 +210,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
 if __name__ == "__main__":
     models      = ["ellipses", "disk"]
-    noise_levels= ["none", "low", "high"]
+    noise_levels= ["very_high", "none", "low", "high"]
     input_types = ["BP", "FBP"]
     lambs       = [1e2, 1e1, 1e0, 0,1e-1, 1e-2, 1e-3]
     
