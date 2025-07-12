@@ -209,10 +209,10 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     return best_lamb, best_psnr, best_psnr_curve, best_ssim_curve, best_ssim
 
 if __name__ == "__main__":
-    models      = ["ellipses", "disk"]
-    noise_levels= ["very_high", "none", "low", "high"]
+    models = ["ellipses", "disk"]
+    noise_levels = ["very_high", "none", "low", "high"]
     input_types = ["BP", "FBP"]
-    lambs       = [1e2, 1e1, 1e0, 0,1e-1, 1e-2, 1e-3]
+    lambs = [50, 10, 5, 1, 1e-1, 1e-2, 1e-3, 1e-4]
     
     sigma_max = 1.1
     white = torch.randn(1, 1, 256, 256, device=device) * sigma_max
