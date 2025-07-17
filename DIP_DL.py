@@ -95,6 +95,9 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     best_lamb = lambs[0]
     best_ssim = -float("inf")
 
+    worst_psnr = float("inf")
+    worst_ssim = float("inf")
+
     psnr_curves = {lamb: [] for lamb in lambs}
     ssim_curves = {lamb: [] for lamb in lambs}
     physics_new = OperatorModule(physics_raw)
@@ -181,6 +184,13 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
                 best_psnr = psnr_value
                 best_ssim = ssim_value
                 best_lamb = lamb
+                best_x_pred = x_pred
+
+            if psnr_value < worst_psnr and ssim_value < worst_ssim:
+                worst_psnr = psnr_value
+                worst_ssim = ssim_value
+                worst_x_pred = x_pred
+                worst_lamb = lamb
 
         x_pred_np = x_pred.squeeze().detach().cpu().numpy()
         plt.imshow(x_pred_np, cmap='gray', vmin=0, vmax=1)
@@ -191,7 +201,20 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         plt.close()
 
     print(f"Best PSNR: {best_psnr:.2f}, Best SSIM: {best_ssim:.4f}, dB for λ={best_lamb:.1e}")
-    
+    best_x_pred_np = best_x_pred.squeeze().detach().cpu().numpy()
+    plt.imshow(best_x_pred_np, cmap='gray', vmin=0, vmax=1)
+    plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={best_lamb:.1e}, PSNR: {best_psnr:.2f} dB, SSIM: {best_ssim:.4f}")
+    plt.axis('off')
+    plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{best_lamb:.1e}_best.png", dpi=200)
+    plt.close()
+
+    worst_x_pred_np = worst_x_pred.squeeze().detach().cpu().numpy()
+    plt.imshow(worst_x_pred_np, cmap='gray', vmin=0, vmax=1)
+    plt.title(f"Worst PSNR: {worst_psnr:.2f}, Worst SSIM: {worst_ssim:.4f}, dB for λ={worst_lamb:.1e}")
+    plt.axis('off')
+    plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{worst_lamb:.1e}_worst.png", dpi=200)
+    plt.close()
+
     out_dir = f"results/DIP_dl/{model_type}/{noise_level}/{input_type}"
     os.makedirs(out_dir, exist_ok=True)
 
