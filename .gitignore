@@ -3,6 +3,4 @@ outputs/
 train_feedback.py
 old_code.py
 checkpoints
-results/DIP_dl
-results/classic
-results/DIP_dl_critic
+
