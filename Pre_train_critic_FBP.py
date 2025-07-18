@@ -26,7 +26,7 @@ angles_torch = torch.linspace(0,180,60,device=device)
 os.makedirs('checkpoints', exist_ok=True)
 best_wass = float('inf')
 
-epochs = 150
+epochs = 120
 for epoch in range(epochs):
     rand_sigma_train = np.random.uniform(0.1, 5.0)
     physics_train = dinv.physics.Tomography(

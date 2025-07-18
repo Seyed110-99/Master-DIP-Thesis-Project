@@ -100,7 +100,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         if critic_noise == "low":
             critic.load_state_dict(torch.load("checkpoints/pre_model_reg_FBP_low.pth", map_location=device))
         elif critic_noise == "high":
-            critic.load_state_dict(torch.load("checkpoints/pre_model_reg_FBP.pth", map_location=device))
+            critic.load_state_dict(torch.load("checkpoints/pre_model_reg_FBP_high.pth", map_location=device))
 
     elif input_type == "FBP":
         x_in = physics_raw.A_dagger(walnut_data)
@@ -108,7 +108,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         if critic_noise == "low":
             critic.load_state_dict(torch.load("checkpoints/pre_model_reg_FBP_low.pth", map_location=device))
         elif critic_noise == "high":
-            critic.load_state_dict(torch.load("checkpoints/pre_model_reg_FBP.pth", map_location=device))
+            critic.load_state_dict(torch.load("checkpoints/pre_model_reg_FBP_high.pth", map_location=device))
         else:
             raise ValueError(f"Unknown critic noise level {critic_noise}")
     
@@ -175,8 +175,11 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
             else:
                 x_critic = x_pred
 
-            
-            loss = mse + lamb * critic(x_critic).mean()
+            with torch.no_grad():
+                adv = critic(x_critic)
+                # adv = adv.mean()
+
+            loss = mse + lamb * adv
             loss.backward()
             optimizer.step()
 
@@ -186,6 +189,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
             x_pred_np = x_pred.squeeze().detach().cpu().numpy()
             x_GT_np = walnut_GT.squeeze().detach().cpu().numpy()
+            
             ssim_value = skimage.metrics.structural_similarity(
                 x_pred_np, 
                 x_GT_np, 
@@ -211,10 +215,10 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
         x_pred_np = x_pred.squeeze().detach().cpu().numpy()
         plt.imshow(x_pred_np, cmap='gray', vmin=0, vmax=1)
-        plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={lamb:.1e}, PSNR: {psnr_value:.2f} dB, SSIM: {ssim_value:.4f}")
+        plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={lamb:.1e}, PSNR: {psnr_value:.2f} dB, SSIM: {ssim_value:.4f}", fontsize=10)
         plt.axis('off')
-        os.makedirs(f"results/DIP_dl_critic_{critic_noise}/{model_type}/{noise_level}", exist_ok=True)
-        plt.savefig(f"results/DIP_dl_critic_{critic_noise}/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
+        os.makedirs(f"results/DIP_dl_critic/{model_type}/{noise_level}", exist_ok=True)
+        plt.savefig(f"results/DIP_dl_critic/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
         plt.close()
 
     print(f"Best PSNR: {best_psnr:.2f}, Best SSIM: {best_ssim:.4f}, dB for λ={best_lamb:.1e}")
@@ -223,17 +227,17 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     plt.imshow(best_x_pred_np, cmap='gray', vmin=0, vmax=1)
     plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={best_lamb:.1e}, PSNR: {best_psnr:.2f} dB, SSIM: {best_ssim:.4f}")
     plt.axis('off')
-    plt.savefig(f"results/DIP_dl_critic_{critic_noise}/{model_type}/{noise_level}/rec_epoch_{input_type}_{best_lamb:.1e}_best.png", dpi=200)
+    plt.savefig(f"results/DIP_dl_critic/{model_type}/{noise_level}/rec_epoch_{input_type}_{best_lamb:.1e}_best.png", dpi=200)
     plt.close()
 
     worst_x_pred_np = worst_x_pred.squeeze().detach().cpu().numpy()
     plt.imshow(worst_x_pred_np, cmap='gray', vmin=0, vmax=1)
     plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={worst_lamb:.1e}, PSNR: {worst_psnr:.2f} dB, SSIM: {worst_ssim:.4f}")
     plt.axis('off')
-    plt.savefig(f"results/DIP_dl_critic_{critic_noise}/{model_type}/{noise_level}/rec_epoch_{input_type}_{worst_lamb:.1e}_worst.png", dpi=200)
+    plt.savefig(f"results/DIP_dl_critic/{model_type}/{noise_level}/rec_epoch_{input_type}_{worst_lamb:.1e}_worst.png", dpi=200)
     plt.close()
 
-    out_dir = f"results/DIP_dl_critic_{critic_noise}/{model_type}/{noise_level}/{input_type}"
+    out_dir = f"results/DIP_dl_critic/{model_type}/{noise_level}/{input_type}"
     os.makedirs(out_dir, exist_ok=True)
 
    
@@ -253,10 +257,10 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
 if __name__ == "__main__":
     # critic_noise = ["high", "low"]
-    critic_noise = ["high"]  # Change this to "high" or "low" as needed
+    critic_noises = ["high"]
     models = ["unet", "ellipses", "disk"]
     noise_levels = ["very_high", "none", "low", "high"]
-    input_types = ["z", "BP", "FBP"]
+    input_types = ["z", "FBP", "BP"]
     lambs = [50, 10, 5, 1, 1e-1, 1e-2, 1e-3, 1e-4]
     
     sigma_max = 1.1
@@ -266,7 +270,7 @@ if __name__ == "__main__":
     lambda_adv = 2 * (sigma_max ** 2) * At_white.sum().item()
     lambs.append(lambda_adv)
 
-    for critic_noise in critic_noise:
+    for critic_noise in critic_noises:
         for model_type in models:
             for noise_level in noise_levels:
                 # collect best‐lambda curves for each input type
@@ -281,7 +285,8 @@ if __name__ == "__main__":
                         lambs,
                         noise_level=noise_level,
                         model_type=model_type,
-                        input_type=input_type
+                        input_type=input_type,
+                        critic_noise=critic_noise
                     )
                     best_curves[input_type] = best_curve
                     best_psnrs[input_type] = best_psnr
@@ -307,7 +312,7 @@ if __name__ == "__main__":
                     f"{model_type} ({noise_level} noise), λ={top_lambda:.1e}, PSNR={top_psnr:.2f} dB"
                 )
                 plt.legend()
-                out_dir = f"results/DIP_dl_critic_{critic_noise}/{model_type}/{noise_level}"
+                out_dir = f"results/DIP_dl_critic/{model_type}/{noise_level}"
                 os.makedirs(out_dir, exist_ok=True)
                 plt.savefig(f"{out_dir}/psnr_compare_{model_type}_{noise_level}.png", dpi=200)
                 plt.close()

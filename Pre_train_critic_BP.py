@@ -28,7 +28,7 @@ ds_data_val_bp = DataLoader(disk_train, batch_size=16)
 os.makedirs('checkpoints', exist_ok=True)
 best_wass = float('inf')
 
-epochs = 150
+epochs = 120
 for epoch in range(epochs):
     model_bp.train()
     rand_sigma_train = np.random.uniform(0.1, 5.0)
