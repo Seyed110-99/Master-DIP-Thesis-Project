@@ -252,7 +252,8 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     return best_lamb, best_psnr, best_psnr_curve, best_ssim_curve, best_ssim
 
 if __name__ == "__main__":
-    critic_noise = ["low", "high"]
+    # critic_noise = ["high", "low"]
+    critic_noise = ["high"]  # Change this to "high" or "low" as needed
     models = ["unet", "ellipses", "disk"]
     noise_levels = ["very_high", "none", "low", "high"]
     input_types = ["z", "BP", "FBP"]
