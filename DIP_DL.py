@@ -194,7 +194,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
         x_pred_np = x_pred.squeeze().detach().cpu().numpy()
         plt.imshow(x_pred_np, cmap='gray', vmin=0, vmax=1)
-        plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={lamb:.1e}, PSNR: {psnr_value:.2f} dB, SSIM: {ssim_value:.4f}", fontsize=9)
+        plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={lamb:.1e}, PSNR: {psnr_value:.2f} dB, SSIM: {ssim_value:.4f}", fontsize=7)
         plt.axis('off')
         os.makedirs(f"results/DIP_dl/{model_type}/{noise_level}", exist_ok=True)
         plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
