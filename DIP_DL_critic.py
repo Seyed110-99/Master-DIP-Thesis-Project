@@ -21,6 +21,7 @@ import skimage
 from Model_arch_reg import Net
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
+print(f"number of GPUs: {torch.cuda.device_count()}")
 
 angles = torch.linspace(0, 180, 60, device=device)
 
@@ -121,8 +122,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         x_in = (x_in - mean_x) / (std_x + 1e-10) 
         x_in = torch.clamp(x_in, 0, 1)
         critic = Net(256, 1).to(device)
-        critic.load_state_dict(torch.load("checkpoints/pre_model_reg_BP.pth", map_location=device))
-
+    
         if critic_noise == "low":
             critic.load_state_dict(torch.load("checkpoints/pre_model_reg_BP_low.pth", map_location=device))
         elif critic_noise == "high":
@@ -177,7 +177,6 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
             with torch.no_grad():
                 adv = critic(x_critic)
-                # adv = adv.mean()
 
             loss = mse + lamb * adv
             loss.backward()
@@ -189,7 +188,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
             x_pred_np = x_pred.squeeze().detach().cpu().numpy()
             x_GT_np = walnut_GT.squeeze().detach().cpu().numpy()
-            
+
             ssim_value = skimage.metrics.structural_similarity(
                 x_pred_np, 
                 x_GT_np, 
@@ -215,7 +214,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
         x_pred_np = x_pred.squeeze().detach().cpu().numpy()
         plt.imshow(x_pred_np, cmap='gray', vmin=0, vmax=1)
-        plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={lamb:.1e}, PSNR: {psnr_value:.2f} dB, SSIM: {ssim_value:.4f}", fontsize=10)
+        plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={lamb:.1e}, PSNR: {psnr_value:.2f} dB, SSIM: {ssim_value:.4f}", fontsize=9)
         plt.axis('off')
         os.makedirs(f"results/DIP_dl_critic/{model_type}/{noise_level}", exist_ok=True)
         plt.savefig(f"results/DIP_dl_critic/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
@@ -261,7 +260,7 @@ if __name__ == "__main__":
     models = ["unet", "ellipses", "disk"]
     noise_levels = ["very_high", "none", "low", "high"]
     input_types = ["z", "FBP", "BP"]
-    lambs = [50, 10, 5, 1, 1e-1, 1e-2, 1e-3, 1e-4]
+    lambs = [100, 50, 10, 5, 1, 1e-1, 1e-2, 1e-3, 1e-4]
     
     sigma_max = 1.1
     white = torch.randn(1, 1, 256, 256, device=device) * sigma_max
