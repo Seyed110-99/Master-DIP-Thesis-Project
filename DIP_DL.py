@@ -193,24 +193,45 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
                 worst_lamb = lamb
 
         x_pred_np = x_pred.squeeze().detach().cpu().numpy()
-        plt.imshow(x_pred_np, cmap='gray', vmin=0, vmax=1)
-        plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={lamb:.1e}, PSNR: {psnr_value:.2f} dB, SSIM: {ssim_value:.4f}", fontsize=7)
-        plt.axis('off')
-        os.makedirs(f"results/DIP_dl/{model_type}/{noise_level}", exist_ok=True)
-        plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
-        plt.close()
+    #     plt.imshow(x_pred_np, cmap='gray', vmin=0, vmax=1)
+    #     plt.title(
+    #     f"Model: {model_type} | Input: {input_type} | λ={worst_lamb:.1e}\n"
+    #     f"PSNR={worst_psnr:.2f} dB    SSIM={worst_ssim:.4f}",
+    #     pad=2,
+    #     y=1.02,
+    #     va="bottom"
+    # )
+    #     plt.subplots_adjust(top=0.85)
+    #     plt.axis('off')
+    #     os.makedirs(f"results/DIP_dl/{model_type}/{noise_level}", exist_ok=True)
+    #     plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
+    #     plt.close()
 
     print(f"Best PSNR: {best_psnr:.2f}, Best SSIM: {best_ssim:.4f}, dB for λ={best_lamb:.1e}")
     best_x_pred_np = best_x_pred.squeeze().detach().cpu().numpy()
     plt.imshow(best_x_pred_np, cmap='gray', vmin=0, vmax=1)
-    plt.title(f"Model type: {model_type}, Model Input: {input_type}, λ={best_lamb:.1e}, PSNR: {best_psnr:.2f} dB, SSIM: {best_ssim:.4f}")
+    plt.title(
+        f"Model: {model_type} | Input: {input_type} | λ={worst_lamb:.1e}\n"
+        f"PSNR={worst_psnr:.2f} dB    SSIM={worst_ssim:.4f}",
+        pad=2,
+        y=1.02,
+        va="bottom"
+    )
+    plt.subplots_adjust(top=0.85)
     plt.axis('off')
     plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{best_lamb:.1e}_best.png", dpi=200)
     plt.close()
 
     worst_x_pred_np = worst_x_pred.squeeze().detach().cpu().numpy()
     plt.imshow(worst_x_pred_np, cmap='gray', vmin=0, vmax=1)
-    plt.title(f"Worst PSNR: {worst_psnr:.2f}, Worst SSIM: {worst_ssim:.4f}, dB for λ={worst_lamb:.1e}")
+    plt.title(
+        f"Model: {model_type} | Input: {input_type} | λ={worst_lamb:.1e}\n"
+        f"PSNR={worst_psnr:.2f} dB    SSIM={worst_ssim:.4f}",
+        pad=2,
+        y=1.02,
+        va="bottom"
+    )
+    plt.subplots_adjust(top=0.85)
     plt.axis('off')
     plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{worst_lamb:.1e}_worst.png", dpi=200)
     plt.close()

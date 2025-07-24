@@ -33,7 +33,7 @@ if __name__ == "__main__":
             axs[i, j].axis('off')
             
     plt.tight_layout()
-    plt.savefig("results/thesis.pdf", dpi=300)
+    plt.savefig("results/thesis.png", dpi=300)
     plt.show()
     
 
