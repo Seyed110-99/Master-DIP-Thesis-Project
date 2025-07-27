@@ -2,7 +2,8 @@ import deepinv as dinv
 import matplotlib.pyplot as plt
 import torch
 import numpy as np
-
+from PIL import Image
+import os
 def make_operator(x, angles, sigma=0.0):
     angles = torch.linspace(0, 180, angles, device=x.device)
     physics = dinv.physics.Tomography(
@@ -17,24 +18,22 @@ def make_operator(x, angles, sigma=0.0):
     return img 
 
 if __name__ == "__main__":
-
+    os.makedirs("chapter1", exist_ok=True)
     x = torch.load("results/walnut.pt", map_location="cpu")
     angles = [250, 50, 25]
-    noise_levels = [0.0, 1.0, 1.5]
+    noise_levels = [0.0, 0.6, 1.1]
 
     fig, axs = plt.subplots(len(angles), len(noise_levels), figsize=(12, 10))
 
     for i, angle in enumerate(angles):
         for j, noise in enumerate(noise_levels):
             img = make_operator(x, angle, sigma=noise)
-            img_np = img.squeeze().detach().cpu().numpy()
-            axs[i, j].imshow(img_np, cmap='gray')
-            axs[i, j].set_title(f"Angles: {angle}, Noise: {noise}")
-            axs[i, j].axis('off')
+            img = torch.clamp(img, 0, 1)
+            img = (img[0,0]* 255).to(torch.uint8)
+            img = Image.fromarray(img.numpy(), mode='L')
+            img.save(f"chapter1/walnut_{angle}_{noise}.png")
+
             
-    plt.tight_layout()
-    plt.savefig("results/thesis.png", dpi=300)
-    plt.show()
     
 
 

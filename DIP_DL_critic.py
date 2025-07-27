@@ -223,7 +223,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
         #     )
         # plt.subplots_adjust(top=0.85)
         # plt.axis('off')
-        # os.makedirs(f"results/DIP_dl_critic/{model_type}/{noise_level}", exist_ok=True)
+        os.makedirs(f"results/DIP_dl_critic/{model_type}/{noise_level}", exist_ok=True)
         # plt.savefig(f"results/DIP_dl_critic/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
         # plt.close()
 
@@ -240,7 +240,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
             )
     plt.subplots_adjust(top=0.85)
     plt.axis('off')
-    plt.savefig(f"results/DIP_dl_critic/{model_type}/{noise_level}/rec_epoch_{input_type}_{best_lamb:.1e}_best.png", dpi=200)
+    plt.savefig(f"results/DIP_dl_critic/{model_type}/{noise_level}/rec_epoch_{input_type}_{best_lamb:.1e}_best_critic.png", dpi=200)
     plt.close()
 
     worst_x_pred_np = worst_x_pred.squeeze().detach().cpu().numpy()
@@ -254,7 +254,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     )
     plt.subplots_adjust(top=0.85)
     plt.axis('off')
-    plt.savefig(f"results/DIP_dl_critic/{model_type}/{noise_level}/rec_epoch_{input_type}_{worst_lamb:.1e}_worst.png", dpi=200)
+    plt.savefig(f"results/DIP_dl_critic/{model_type}/{noise_level}/rec_epoch_{input_type}_{worst_lamb:.1e}_worst_critic.png", dpi=200)
     plt.close()
 
     out_dir = f"results/DIP_dl_critic/{model_type}/{noise_level}/{input_type}"
@@ -263,10 +263,10 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
    
     json_psnr = {f"{l:.0e}": psnr_curves[l] for l in lambs}
     json_ssim = {f"{l:.0e}": ssim_curves[l] for l in lambs}
-    with open(f"{out_dir}/psnr_curves.json","w") as f:
-        json.dump(json_psnr, f, indent=2)
-    with open(f"{out_dir}/ssim_curves.json","w") as f:
-        json.dump(json_ssim, f, indent=2)
+    # with open(f"{out_dir}/psnr_curves.json","w") as f:
+    #     json.dump(json_psnr, f, indent=2)
+    # with open(f"{out_dir}/ssim_curves.json","w") as f:
+    #     json.dump(json_ssim, f, indent=2)
 
 
 

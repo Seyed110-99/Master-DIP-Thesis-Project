@@ -203,7 +203,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     # )
     #     plt.subplots_adjust(top=0.85)
     #     plt.axis('off')
-    #     os.makedirs(f"results/DIP_dl/{model_type}/{noise_level}", exist_ok=True)
+        os.makedirs(f"results/DIP_dl/{model_type}/{noise_level}", exist_ok=True)
     #     plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
     #     plt.close()
 
@@ -219,7 +219,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     )
     plt.subplots_adjust(top=0.85)
     plt.axis('off')
-    plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{best_lamb:.1e}_best.png", dpi=200)
+    plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{best_lamb:.1e}_best_TV_{model_type}.png", dpi=200)
     plt.close()
 
     worst_x_pred_np = worst_x_pred.squeeze().detach().cpu().numpy()
@@ -233,7 +233,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     )
     plt.subplots_adjust(top=0.85)
     plt.axis('off')
-    plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{worst_lamb:.1e}_worst.png", dpi=200)
+    plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{worst_lamb:.1e}_worst_TV_{model_type}.png", dpi=200)
     plt.close()
 
     out_dir = f"results/DIP_dl/{model_type}/{noise_level}/{input_type}"
@@ -242,10 +242,10 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
    
     json_psnr = {f"{l:.0e}": psnr_curves[l] for l in lambs}
     json_ssim = {f"{l:.0e}": ssim_curves[l] for l in lambs}
-    with open(f"{out_dir}/psnr_curves.json","w") as f:
-        json.dump(json_psnr, f, indent=2)
-    with open(f"{out_dir}/ssim_curves.json","w") as f:
-        json.dump(json_ssim, f, indent=2)
+    # with open(f"{out_dir}/psnr_curves.json","w") as f:
+    #     json.dump(json_psnr, f, indent=2)
+    # with open(f"{out_dir}/ssim_curves.json","w") as f:
+    #     json.dump(json_ssim, f, indent=2)
 
 
 
@@ -255,7 +255,8 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     return best_lamb, best_psnr, best_psnr_curve, best_ssim_curve, best_ssim
 
 if __name__ == "__main__":
-    models      = ["unet", "ellipses", "disk"]
+    # models      = ["unet", "ellipses", "disk"]
+    models     = ["ellipses"]
     noise_levels= ["very_high", "none", "low", "high"]
     input_types = ["z", "FBP", "BP"]
     lambs       = [100, 50, 10, 5, 2, 1, 1e-1, 1e-2, 1e-3, 1e-4]
@@ -297,7 +298,7 @@ if __name__ == "__main__":
             plt.xlabel("Iterations")
             plt.ylabel("PSNR [dB]")
             plt.title(
-                f"{model_type} ({noise_level} noise) → best init={best_input}, λ={top_lambda:.1e}, PSNR={top_psnr:.2f} dB"
+                f"{model_type} ({noise_level} noise) λ={top_lambda:.1e}, PSNR={top_psnr:.2f} dB"
             )
             plt.legend()
             out_dir = f"results/DIP_dl/{model_type}/{noise_level}"
@@ -312,7 +313,7 @@ if __name__ == "__main__":
             plt.xlabel("Iterations")
             plt.ylabel("SSIM")
             plt.title(
-                f"{model_type} ({noise_level} noise) → best init={best_input}, λ={top_lambda:.1e}, SSIM={top_ssim:.4f}"
+                f"{model_type} ({noise_level} noise) λ={top_lambda:.1e}, SSIM={top_ssim:.4f}"
             )
             plt.legend()
             plt.savefig(f"{out_dir}/ssim_compare_{model_type}_{noise_level}.png", dpi=200)
