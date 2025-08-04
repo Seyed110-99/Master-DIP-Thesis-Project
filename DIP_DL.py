@@ -210,30 +210,30 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     print(f"Best PSNR: {best_psnr:.2f}, Best SSIM: {best_ssim:.4f}, dB for λ={best_lamb:.1e}")
     best_x_pred_np = best_x_pred.squeeze().detach().cpu().numpy()
     plt.imshow(best_x_pred_np, cmap='gray', vmin=0, vmax=1)
-    plt.title(
-        f"Model: {model_type} | Input: {input_type} | λ={worst_lamb:.1e}\n"
-        f"PSNR={worst_psnr:.2f} dB    SSIM={worst_ssim:.4f}",
-        pad=2,
-        y=1.02,
-        va="bottom"
-    )
-    plt.subplots_adjust(top=0.85)
+    # plt.title(
+    #     f"Model: {model_type} | Input: {input_type} | λ={best_lamb:.1e}\n"
+    #     f"PSNR={best_psnr:.2f} dB    SSIM={best_ssim:.4f}",
+    #     pad=2,
+    #     y=1.02,
+    #     va="bottom"
+    # )
+    # plt.subplots_adjust(top=0.85)
     plt.axis('off')
-    plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{best_lamb:.1e}_best_TV_{model_type}.png", dpi=200)
+    plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{best_lamb:.1e}_best_TV_{model_type}.png", dpi=200, bbox_inches='tight')
     plt.close()
 
     worst_x_pred_np = worst_x_pred.squeeze().detach().cpu().numpy()
-    plt.imshow(worst_x_pred_np, cmap='gray', vmin=0, vmax=1)
-    plt.title(
-        f"Model: {model_type} | Input: {input_type} | λ={worst_lamb:.1e}\n"
-        f"PSNR={worst_psnr:.2f} dB    SSIM={worst_ssim:.4f}",
-        pad=2,
-        y=1.02,
-        va="bottom"
-    )
-    plt.subplots_adjust(top=0.85)
+    plt.imshow(worst_x_pred_np, cmap='gray')
+    # plt.title(
+    #     f"Model: {model_type} | Input: {input_type} | λ={worst_lamb:.1e}\n"
+    #     f"PSNR={worst_psnr:.2f} dB    SSIM={worst_ssim:.4f}",
+    #     pad=2,
+    #     y=1.02,
+    #     va="bottom"
+    # )
+    # plt.subplots_adjust(top=0.85)
     plt.axis('off')
-    plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{worst_lamb:.1e}_worst_TV_{model_type}.png", dpi=200)
+    plt.savefig(f"results/DIP_dl/{model_type}/{noise_level}/rec_epoch_{input_type}_{worst_lamb:.1e}_worst_TV_{model_type}.png", dpi=200, bbox_inches='tight')
     plt.close()
 
     out_dir = f"results/DIP_dl/{model_type}/{noise_level}/{input_type}"
@@ -257,9 +257,13 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 if __name__ == "__main__":
     # models      = ["unet", "ellipses", "disk"]
     models     = ["ellipses"]
-    noise_levels= ["very_high", "none", "low", "high"]
+    # noise_levels= ["very_high", "none", "low", "high"]
+    # noise_levels = ["low", "high", "none"]
     input_types = ["z", "FBP", "BP"]
-    lambs       = [100, 50, 10, 5, 2, 1, 1e-1, 1e-2, 1e-3, 1e-4]
+    # lambs       = [100, 50, 10, 5, 2, 1, 1e-1, 1e-2, 1e-3, 1e-4]
+    # input_types = ["FBP", "BP"]
+    noise_levels = ["low", "high"]
+    lambs = [2]
 
     for model_type in models:
         for noise_level in noise_levels:
@@ -292,7 +296,6 @@ if __name__ == "__main__":
             print(f"Best input type for {model_type} with {noise_level} noise: {best_input} with PSNR={top_psnr:.2f} dB, SSIM={top_ssim:.4f} and λ={top_lambda:.1e}")
 
             # now plot all three on one figure
-            plt.figure(figsize=(6,4))
             for input_type, curve in best_curves.items():
                 plt.plot(curve, label=input_type)
             plt.xlabel("Iterations")
@@ -300,6 +303,7 @@ if __name__ == "__main__":
             plt.title(
                 f"{model_type} ({noise_level} noise) λ={top_lambda:.1e}, PSNR={top_psnr:.2f} dB"
             )
+            plt.figure(figsize=(6,4))
             plt.legend()
             out_dir = f"results/DIP_dl/{model_type}/{noise_level}"
             os.makedirs(out_dir, exist_ok=True)
@@ -307,7 +311,6 @@ if __name__ == "__main__":
             plt.close()
 
             # Save the best SSIM curve
-            plt.figure(figsize=(6,4))
             for input_type, curve in best_ssims_curves.items():
                 plt.plot(curve, label=input_type)
             plt.xlabel("Iterations")
@@ -315,6 +318,7 @@ if __name__ == "__main__":
             plt.title(
                 f"{model_type} ({noise_level} noise) λ={top_lambda:.1e}, SSIM={top_ssim:.4f}"
             )
+            plt.figure(figsize=(6,4))
             plt.legend()
             plt.savefig(f"{out_dir}/ssim_compare_{model_type}_{noise_level}.png", dpi=200)
             plt.close()

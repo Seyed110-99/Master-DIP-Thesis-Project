@@ -122,11 +122,11 @@ def classic_TV_solver(lambs, image_path, noise_level = "none"):
             )
 
         rec_np = x_model.squeeze().detach().cpu().numpy()
-        plt.imshow(rec_np, cmap='gray', vmin=0, vmax=1)
-        plt.title(f"TV‐PGD λ={lamb:.1e}, PSNR={metrics['psnr'][-1][-1]:.1f} dB, SSIM={metrics['ssim'][-1][-1]:.1f} for noise level {noise_level}")
+        plt.imshow(rec_np, cmap='gray')
+        # plt.title(f"TV‐PGD λ={lamb:.1e}, PSNR={metrics['psnr'][-1][-1]:.1f} dB, SSIM={metrics['ssim'][-1][-1]:.1f} for noise level {noise_level}")
         plt.axis('off')
         os.makedirs(f"results/classic/tv_sigma_{noise_level}", exist_ok=True)
-        plt.savefig(f"results/classic/tv_sigma_{noise_level}/rec_lambda_{lamb:.0e}_step_size{stepsize:.0e}.png", dpi=200)
+        plt.savefig(f"results/classic/tv_sigma_{noise_level}/rec_lambda_{lamb:.0e}_step_size{stepsize:.0e}.png", dpi=200, bbox_inches='tight')
         plt.close()
 
         print(f"first PSNR {metrics['psnr'][-1][0]}")
@@ -155,7 +155,7 @@ def classic_TV_solver(lambs, image_path, noise_level = "none"):
     # for lamb, curve in psnr_curves.items():
     #     if lamb == best_lamb:
     #         plt.plot(curve, label=f"lambda={lamb:.0e}")
-
+    plt.figure(figsize=(6,4))
     plt.plot(psnr_curves[best_lamb], label=f"lambda={best_lamb:.0e}")
     plt.xlabel("PGD iteration")
     plt.ylabel("PSNR [dB]")
@@ -164,7 +164,7 @@ def classic_TV_solver(lambs, image_path, noise_level = "none"):
     f"best λ={best_lamb:.0e}, step={best_stepsize:.0e}, "
     f"PSNR={best_psnr:.2f} dB (noise={noise_level})"
     )
-    plt.title(title, fontsize=8)
+    plt.title(title)
     # plt.legend(bbox_to_anchor=(1.02, 1), loc='upper left', fontsize='small')
     plt.tight_layout()
     plt.savefig(f"results/classic/tv_sigma_{noise_level}/psnr_trajectories_{best_lamb}_{best_stepsize}_{noise_level}.png", dpi=200)
@@ -175,6 +175,7 @@ def classic_TV_solver(lambs, image_path, noise_level = "none"):
     # for lamb, curve in ssim_curves.items():
     #     if lamb == best_lamb:
     #         plt.plot(curve, label=f"lambda={lamb:.0e}")
+    plt.figure(figsize=(6,4))
     plt.plot(ssim_curves[best_lamb], label=f"lambda={best_lamb:.0e}")
     plt.xlabel("PGD iteration")
     plt.ylabel("SSIM")
@@ -183,7 +184,7 @@ def classic_TV_solver(lambs, image_path, noise_level = "none"):
         f"best λ={best_lamb:.0e}, step={best_stepsize:.0e}, "
         f"SSIM={best_ssim:.2f} (noise={noise_level})"
     )
-    plt.title(title, fontsize=8)
+    plt.title(title)
     # plt.legend(bbox_to_anchor=(1.02, 1), loc='upper left', fontsize='small')
     plt.tight_layout()
     plt.savefig(f"results/classic/tv_sigma_{noise_level}/ssim_trajectories_{best_lamb}_{best_stepsize}_{noise_level}.png", dpi=200)
