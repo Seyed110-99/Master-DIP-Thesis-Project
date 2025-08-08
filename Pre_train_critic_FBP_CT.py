@@ -21,8 +21,8 @@ train_data = volume[:train_slices]
 val_data = volume[train_slices:]
 
 
-ds_data_train = DataLoader(train_data, batch_size=16)
-ds_data_val = DataLoader(val_data, batch_size=16)
+ds_data_train = DataLoader(train_data, batch_size=2)
+ds_data_val = DataLoader(val_data, batch_size=2)
 model = Net(256, 1).to(device)
 opt = torch.optim.Adam(model.parameters(), lr=1e-4)
 angles_torch = torch.linspace(0,180,60,device=device)
@@ -32,7 +32,7 @@ best_wass = float('inf')
 
 epochs = 150
 for epoch in range(epochs):
-    rand_sigma_train = np.random.uniform(0.1, 5.0)
+    rand_sigma_train = np.random.uniform(0.1, 1.0)
     physics_train = dinv.physics.Tomography(
         img_width=256, 
         angles=angles_torch, 

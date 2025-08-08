@@ -12,26 +12,26 @@ import deepinv as dinv
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 print(f"number of GPUs: {torch.cuda.device_count()}")
-disk_train = get_disk_dist_ellipses_dataset(fold="train", im_size = 256, length = 5000, max_n_ellipse = 40)
-disk_val = get_disk_dist_ellipses_dataset(fold="val", im_size = 256, length = 1000, max_n_ellipse = 40)
+disk_train = get_disk_dist_ellipses_dataset(fold="train", im_size = 256, length = 5000, max_n_ellipse = 20)
+disk_val = get_disk_dist_ellipses_dataset(fold="val", im_size = 256, length = 1000, max_n_ellipse = 20)
 
 ellipses_test = disk_train[0][0].squeeze(0).numpy()
 
-ds_data_train = DataLoader(disk_train, batch_size=16)
-ds_data_val = DataLoader(disk_val, batch_size=16)
+ds_data_train = DataLoader(disk_train, batch_size=8)
+ds_data_val = DataLoader(disk_val, batch_size=8)
 angles_torch = torch.linspace(0,180,60,device=device)
 
 model_bp = Net(256, 1).to(device)
 opt = torch.optim.Adam(model_bp.parameters(), lr=1e-4)
-ds_data_train_bp = DataLoader(disk_train, batch_size=16)
-ds_data_val_bp = DataLoader(disk_train, batch_size=16)
+ds_data_train_bp = DataLoader(disk_train, batch_size=2)
+ds_data_val_bp = DataLoader(disk_train, batch_size=2)
 os.makedirs('checkpoints', exist_ok=True)
 best_wass = float('inf')
 
 epochs = 120
 for epoch in range(epochs):
     model_bp.train()
-    rand_sigma_train = np.random.uniform(0.1, 5.0)
+    rand_sigma_train = np.random.uniform(0.1, 1.0)
     physics_train = dinv.physics.Tomography(
         img_width=256, 
         angles=angles_torch, 
