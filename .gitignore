@@ -7,3 +7,5 @@ results/classic
 results/DIP_dl_critic
 results/DIP_dl
 data
+results/DIP_dl_critic_CT
+results_new

@@ -98,7 +98,7 @@ for epoch in range(epochs):
         running_train += loss.item() * real_img.size(0)
 
     print(f"Epoch {epoch:02d} train Loss: {running_train/len(ds_data_train_bp):.4f}, with noise level {rand_sigma_train:.2f}")
-    print(f"D_real = {D_real.item():.4f}, D_fake = {D_fake.item():.4f}")
+    print(f"D_real = {D_real.item():.4f}, D_fake = {D_fake.item():.4f}, and gradient penalty = {L_gp.item():.4f}")
 
     running_test = 0.0
     running_wass = 0.0
@@ -158,4 +158,4 @@ for epoch in range(epochs):
     
     torch.save(model_bp.state_dict(), 'checkpoints/pre_model_reg_BP_high_CT.pth')
     print(f"Epoch {epoch:02d} test Loss: {avg_loss:.4f}, with noise level {rand_sigma_test:.2f}")
-    print(f"D_real = {D_real.item():.4f}, D_fake = {D_noise.item():.4f}")
+    print(f"D_real = {D_real.item():.4f}, D_fake = {D_noise.item():.4f}, and gradient penalty = {L_gp.item():.4f}")
