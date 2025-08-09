@@ -70,7 +70,11 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
     walnut_GT = walnut_GT.unsqueeze(0)  # Add batch dimension
     walnut_GT = walnut_GT.to(device)
     max_walnut = torch.max(walnut_GT).item()
-
+    plt.imshow(walnut_GT.squeeze().detach().cpu().numpy(), cmap='gray')
+    plt.axis('off')
+    plt.savefig(f"results_img/actual_img.png", dpi=200, bbox_inches='tight')
+    plt.close()
+    
     if noise_level == "low":
         noise = torch.randn_like(walnut_GT) * 0.05
         walnut_data = walnut_GT + noise
@@ -195,7 +199,7 @@ def ellipses_DIP_dl(lambs, noise_level = "none", model_type = "ellipses", input_
 
     print(f"Best PSNR: {best_psnr:.2f}, Best SSIM: {best_ssim:.4f}, dB for λ={best_lamb:.1e}")
     best_x_pred_np = best_x_pred.squeeze().detach().cpu().numpy()
-    plt.imshow(best_x_pred_np, cmap='gray', vmin=0, vmax=1)
+    plt.imshow(best_x_pred_np, cmap='gray')
     # plt.title(
     #     f"Model: {model_type} | Input: {input_type} | λ={best_lamb:.1e}\n"
     #     f"PSNR={best_psnr:.2f} dB    SSIM={best_ssim:.4f}",
@@ -280,6 +284,7 @@ if __name__ == "__main__":
             print(f"Best input type for {model_type} with {noise_level} noise: {best_input} with PSNR={top_psnr:.2f} dB, SSIM={top_ssim:.4f} and λ={top_lambda:.1e}")
 
             # now plot all three on one figure
+            plt.figure(figsize=(6,4))
             for input_type, curve in best_curves.items():
                 plt.plot(curve, label=input_type)
             plt.xlabel("Iterations")
@@ -287,7 +292,6 @@ if __name__ == "__main__":
             plt.title(
                 f"{model_type} ({noise_level} noise) λ={top_lambda:.1e}, PSNR={top_psnr:.2f} dB"
             )
-            plt.figure(figsize=(6,4))
             plt.legend()
             out_dir = f"results_img/DIP_dl/{model_type}/{noise_level}"
             os.makedirs(out_dir, exist_ok=True)
@@ -295,6 +299,7 @@ if __name__ == "__main__":
             plt.close()
 
             # Save the best SSIM curve
+            plt.figure(figsize=(6,4))
             for input_type, curve in best_ssims_curves.items():
                 plt.plot(curve, label=input_type)
             plt.xlabel("Iterations")
@@ -302,7 +307,6 @@ if __name__ == "__main__":
             plt.title(
                 f"{model_type} ({noise_level} noise) λ={top_lambda:.1e}, SSIM={top_ssim:.4f}"
             )
-            plt.figure(figsize=(6,4))
             plt.legend()
             plt.savefig(f"{out_dir}/ssim_compare_{model_type}_{noise_level}.png", dpi=200)
             plt.close()

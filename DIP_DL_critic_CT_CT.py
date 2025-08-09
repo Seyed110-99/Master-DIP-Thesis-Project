@@ -281,7 +281,7 @@ if __name__ == "__main__":
     models = ["ellipses"]
     # noise_levels = ["very_high", "none", "low", "high"]
     noise_levels = ["none", "low", "high"]
-    input_types = ["FBP", "BP", "z"]
+    input_types = ["z", "FBP", "BP"]
     # input_types = ["FBP", "BP"]
     lambs = [100, 50, 10, 5, 1, 1e-1, 1e-2, 1e-3, 1e-4]
     
