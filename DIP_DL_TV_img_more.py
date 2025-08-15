@@ -205,7 +205,7 @@ def ellipses_DIP_dl(walnut_GT, img_num ,lambs, noise_level = "none", model_type 
     # )
     # plt.subplots_adjust(top=0.85)
     plt.axis('off')
-    plt.savefig(f"results_img_more/DIP_dl/{model_type}/{noise_level}/best_img_{model_type}_{input_type}_img{img_num}_TV.png", dpi=200, bbox_inches='tight')
+    plt.savefig(f"results_img_more/DIP_dl/{model_type}/{noise_level}/best_img_{model_type}_{input_type}_img{img_num+1}_TV.png", dpi=200, bbox_inches='tight')
     plt.close()
 
     worst_x_pred_np = worst_x_pred.squeeze().detach().cpu().numpy()
@@ -219,7 +219,7 @@ def ellipses_DIP_dl(walnut_GT, img_num ,lambs, noise_level = "none", model_type 
     # )
     # plt.subplots_adjust(top=0.85)
     plt.axis('off')
-    plt.savefig(f"results_img_more/DIP_dl/{model_type}/{noise_level}/worst_img_{model_type}_{input_type}_img{img_num}_TV.png", dpi=200, bbox_inches='tight')
+    plt.savefig(f"results_img_more/DIP_dl/{model_type}/{noise_level}/worst_img_{model_type}_{input_type}_img{img_num+1}_TV.png", dpi=200, bbox_inches='tight')
     plt.close()
 
     out_dir = f"results_img_more/DIP_dl/{model_type}/{noise_level}/{input_type}"
