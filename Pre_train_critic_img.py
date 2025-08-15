@@ -38,7 +38,7 @@ class ImageDaraset(Dataset):
 
 transforms = T.Compose([
 
-    T.Resize((256, 256)),
+    T.CenterCrop((256, 256)),
     T.ToTensor(),
 ])
 
