@@ -58,7 +58,7 @@ class ImageDataset(Dataset):
 
 transforms = T.Compose([
 
-    T.Resize((256, 256)),
+    T.CenterCrop((256, 256)),
     T.ToTensor(),
 ])
 val = ImageDataset("data/val", transform=transforms)
