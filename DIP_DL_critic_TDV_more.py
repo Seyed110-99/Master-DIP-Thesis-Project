@@ -201,7 +201,7 @@ def ellipses_DIP_dl(walnut_GT, img_num ,lambs, noise_level = "none", model_type 
     #         )
     # plt.subplots_adjust(top=0.85)
     plt.axis('off')
-    plt.savefig(f"results_img_more/DIP_dl_tdv/{model_type}/{noise_level}/best_img_{model_type}_{input_type}_img{img_num+1}_critic.png", dpi=200, bbox_inches='tight')
+    plt.savefig(f"results_img_more/DIP_dl_tdv/{model_type}/{noise_level}/best_img_{model_type}_{input_type}_img{img_num+1}_TDV.png", dpi=200, bbox_inches='tight')
     plt.close()
 
     worst_x_pred_np = worst_x_pred.squeeze().detach().cpu().numpy()
@@ -215,7 +215,7 @@ def ellipses_DIP_dl(walnut_GT, img_num ,lambs, noise_level = "none", model_type 
     # )
     # plt.subplots_adjust(top=0.85)
     plt.axis('off')
-    plt.savefig(f"results_img_more/DIP_dl_tdv/{model_type}/{noise_level}/worst_img_{model_type}_{input_type}_img{img_num+1}_critic.png", dpi=200, bbox_inches='tight')
+    plt.savefig(f"results_img_more/DIP_dl_tdv/{model_type}/{noise_level}/worst_img_{model_type}_{input_type}_img{img_num+1}_TDV.png", dpi=200, bbox_inches='tight')
     plt.close()
 
     out_dir = f"results_img_more/DIP_dl_tdv/{model_type}/{noise_level}/{input_type}"
@@ -301,7 +301,7 @@ if __name__ == "__main__":
                     plt.legend()
                     out_dir = f"results_img_more/DIP_dl_tdv/{model_type}/{noise_level}"
                     os.makedirs(out_dir, exist_ok=True)
-                    plt.savefig(f"{out_dir}/psnr_compare_{model_type}_{noise_level}_img{i+1}_critic.png", dpi=200)
+                    plt.savefig(f"{out_dir}/psnr_compare_{model_type}_{noise_level}_img{i+1}_TDV.png", dpi=200)
                     plt.close()
 
                     # Save the best SSIM curve
@@ -315,7 +315,7 @@ if __name__ == "__main__":
                     )
                     
                     plt.legend()
-                    plt.savefig(f"{out_dir}/ssim_compare_{model_type}_{noise_level}_img{i+1}_critic.png", dpi=200)
+                    plt.savefig(f"{out_dir}/ssim_compare_{model_type}_{noise_level}_img{i+1}_TDV.png", dpi=200)
                     plt.close()
 
     print("All models processed successfully.")
