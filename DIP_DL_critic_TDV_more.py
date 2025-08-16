@@ -1,0 +1,321 @@
+import os
+import sys
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from skimage import data
+import numpy as np
+import matplotlib.pyplot as plt
+from skimage.transform import resize
+import json
+import deepinv as dinv
+from skimage.transform import iradon
+from torch.utils.data import Dataset, DataLoader
+from torch import Tensor
+from itertools import repeat
+import odl
+from odl.phantom import ellipsoid_phantom
+from odl import uniform_discr
+from Model_arch import UNet
+import skimage 
+from Model_arch_reg import Net
+import torchvision.transforms as T
+from PIL import Image
+from tdv_copy import load_tdv_regulariser
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+print(f"number of GPUs: {torch.cuda.device_count()}")
+
+class ImageDataset(Dataset):
+    def __init__(self, path, transform = None):
+        self.path = path
+        self.transform = transform
+        self.images_paths = [
+
+            os.path.join(self.path, fname)
+            for fname in os.listdir(self.path)
+            if fname.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff'))
+        ]
+    def __len__(self):
+        return len(self.images_paths)
+    def __getitem__(self, idx):
+        img_path = self.images_paths[idx]
+        image = Image.open(img_path).convert("L")
+
+        if self.transform:
+            image = self.transform(image)
+        return image
+
+transforms = T.Compose([
+    T.CenterCrop((256, 256)),
+    T.ToTensor(),
+])
+val = ImageDataset("data/val", transform=transforms)
+
+def ellipses_DIP_dl(walnut_GT, img_num ,lambs, noise_level = "none", model_type = "ellipses", input_type = "z", critic_noise = "low"):
+
+    
+    walnut_GT = walnut_GT.unsqueeze(0)  # Add batch dimension
+    walnut_GT = walnut_GT.to(device)
+    max_walnut = torch.max(walnut_GT).item()
+    
+
+    if noise_level == "low":
+        noise = torch.randn_like(walnut_GT) * 0.05
+        walnut_data = walnut_GT + noise
+    elif noise_level == "high":
+        noise = torch.randn_like(walnut_GT) * 0.1
+        walnut_data = walnut_GT + noise
+    elif noise_level == "very_high":
+        noise = torch.randn_like(walnut_GT) * 0.2
+        walnut_data = walnut_GT + noise
+    else:
+        raise ValueError(f"Unknown noise level {noise_level}")
+
+    walnut_data = walnut_data.to(device)
+    Height, Width = walnut_GT.shape[-2], walnut_GT.shape[-1]
+
+    best_psnr = -float("inf")
+    best_lamb = lambs[0]
+    best_ssim = -float("inf")
+
+    worst_psnr = float("inf")
+    worst_ssim = float("inf")
+
+    psnr_curves = {lamb: [] for lamb in lambs}
+    ssim_curves = {lamb: [] for lamb in lambs}
+   
+
+    if input_type == "z":
+        x_in = torch.randn((1,1,Height,Width), device=device)
+        # x_in = walnut_data.unsqueeze(0)
+        tdv = load_tdv_regulariser(device)
+       
+
+
+    
+        
+    else:
+        raise ValueError(f"Unknown input_type {input_type}")
+
+
+    for lamb in lambs:
+
+        if model_type == "ellipses":
+            model = UNet(1, 1)
+            ellipse_pretrained_weight = torch.load("checkpoints/pre_model.pth", map_location=device)
+            model.load_state_dict(ellipse_pretrained_weight)
+
+        elif model_type == "disk":
+            model = UNet(1, 1)
+            disk_pretrained_weight = torch.load("checkpoints/pre_disk_model.pth", map_location=device)
+            model.load_state_dict(disk_pretrained_weight)
+
+        else:
+            model = UNet(1, 1)
+            
+
+        
+        model = model.to(device)
+        x_in = x_in.to(device)
+
+        model.train()
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+        criterion = nn.MSELoss()
+
+        epochs = 5000
+
+        for epoch in range(epochs):
+
+            optimizer.zero_grad()
+            
+            x_pred = model(x_in)
+            # y_pred = physics_new.forward(x_pred)
+
+            mse = criterion(x_pred, walnut_data)
+
+            x_critic = x_pred
+
+            with torch.no_grad():
+                loss_reg = tdv.g(x_critic)
+
+            loss = mse + lamb * loss_reg
+            loss.backward()
+            optimizer.step()
+
+            psnr_value = dinv.metric.PSNR(max_pixel=max_walnut)(x_pred, walnut_GT).item()
+            # append this epoch’s PSNR
+            psnr_curves[lamb].append(psnr_value)
+
+            x_pred_np = x_pred.squeeze().detach().cpu().numpy()
+            x_GT_np = walnut_GT.squeeze().detach().cpu().numpy()
+
+            ssim_value = skimage.metrics.structural_similarity(
+                x_pred_np, 
+                x_GT_np, 
+                data_range= x_GT_np.max() - x_GT_np.min()
+                )
+            
+            ssim_curves[lamb].append(ssim_value)
+
+            if epoch % 100 == 0:
+                print(f"Model type: {model_type}, Epoch [{epoch}/{epochs}], Loss: {loss.item():.4f}, PSNR: {psnr_value:.2f} dB, SSIM: {ssim_value:.4f}, Model Input: {input_type}, Noise:{noise_level}")
+
+            if psnr_value > best_psnr and ssim_value > best_ssim:
+                best_psnr = psnr_value
+                best_ssim = ssim_value
+                best_lamb = lamb
+                best_x_pred = x_pred
+
+            if psnr_value < worst_psnr and ssim_value < worst_ssim:
+                worst_psnr = psnr_value
+                worst_ssim = ssim_value
+                worst_x_pred = x_pred
+                worst_lamb = lamb
+
+        x_pred_np = x_pred.squeeze().detach().cpu().numpy()
+        # plt.imshow(x_pred_np, cmap='gray', vmin=0, vmax=1)
+        # plt.title(
+        #     f"Model: {model_type} | Input: {input_type} | λ={lamb:.1e}\n"
+        #     f"PSNR={psnr_value:.1f} dB    SSIM={ssim_value:.3f}",
+        #     pad=2,
+        #     y=1.02,
+        #     va="bottom"
+        #     )
+        # plt.subplots_adjust(top=0.85)
+        # plt.axis('off')
+        os.makedirs(f"results_img_more/DIP_dl_tdv/{model_type}/{noise_level}", exist_ok=True)
+        # plt.savefig(f"results/DIP_dl_tdv/{model_type}/{noise_level}/rec_epoch_{input_type}_{lamb:.1e}.png", dpi=200)
+        # plt.close()
+
+    print(f"Best PSNR: {best_psnr:.2f}, Best SSIM: {best_ssim:.4f}, dB for λ={best_lamb:.1e}")
+
+    best_x_pred_np = best_x_pred.squeeze().detach().cpu().numpy()
+    plt.imshow(best_x_pred_np, cmap='gray')
+    # plt.title(
+    #         f"Model: {model_type} | Input: {input_type} | λ={best_lamb:.1e}\n"
+    #         f"PSNR={best_psnr:.1f} dB    SSIM={best_ssim:.3f}",
+    #         pad=2,
+    #         y=1.02,
+    #         va="bottom"
+    #         )
+    # plt.subplots_adjust(top=0.85)
+    plt.axis('off')
+    plt.savefig(f"results_img_more/DIP_dl_tdv/{model_type}/{noise_level}/best_img_{model_type}_{input_type}_img{img_num+1}_critic.png", dpi=200, bbox_inches='tight')
+    plt.close()
+
+    worst_x_pred_np = worst_x_pred.squeeze().detach().cpu().numpy()
+    plt.imshow(worst_x_pred_np, cmap='gray')
+    # plt.title(
+    #     f"Model: {model_type} | Input: {input_type} | λ={worst_lamb:.1e}\n"
+    #     f"PSNR={worst_psnr:.2f} dB    SSIM={worst_ssim:.4f}",
+    #     pad=2,
+    #     y=1.02,
+    #     va="bottom"
+    # )
+    # plt.subplots_adjust(top=0.85)
+    plt.axis('off')
+    plt.savefig(f"results_img_more/DIP_dl_tdv/{model_type}/{noise_level}/worst_img_{model_type}_{input_type}_img{img_num+1}_critic.png", dpi=200, bbox_inches='tight')
+    plt.close()
+
+    out_dir = f"results_img_more/DIP_dl_tdv/{model_type}/{noise_level}/{input_type}"
+    os.makedirs(out_dir, exist_ok=True)
+
+   
+    json_psnr = {f"{l:.0e}": psnr_curves[l] for l in lambs}
+    json_ssim = {f"{l:.0e}": ssim_curves[l] for l in lambs}
+    # with open(f"{out_dir}/psnr_curves.json","w") as f:
+    #     json.dump(json_psnr, f, indent=2)
+    # with open(f"{out_dir}/ssim_curves.json","w") as f:
+    #     json.dump(json_ssim, f, indent=2)
+
+
+
+    best_psnr_curve = psnr_curves[best_lamb]
+    best_ssim_curve = ssim_curves[best_lamb]
+
+    return best_lamb, best_psnr, best_psnr_curve, best_ssim_curve, best_ssim
+
+if __name__ == "__main__":
+    critic_noises = ["high"]
+    # models = ["unet", "ellipses", "disk"]
+    models = ["ellipses"]
+    # noise_levels = ["very_high", "none", "low", "high"]
+    noise_levels = ["low", "high", "very_high"]
+    input_types = ["z"]
+    lambs = [100, 50, 10, 5, 1, 1e-1, 1e-2, 1e-3, 1e-4]
+    
+    
+    for i in range(1):
+        os.makedirs(f"results_img_more", exist_ok=True)
+        img = val[i]
+        img_np = img.squeeze().detach().cpu().numpy()
+        plt.imshow(img_np, cmap='gray')
+        plt.axis('off')
+        plt.savefig(f"results_img_more/Actual_img_{i+1}.png", dpi=300, bbox_inches='tight')
+        plt.close()
+        for critic_noise in critic_noises:
+            for model_type in models:
+                for noise_level in noise_levels:
+                    # collect best‐lambda curves for each input type
+                    best_curves = {}
+                    best_psnrs = {}
+                    best_lambdas = {}
+                    best_ssims = {}
+                    best_ssims_curves = {}
+
+                    for input_type in input_types:
+                        best_lamb, best_psnr, best_curve, best_ssim_curve, best_ssim = ellipses_DIP_dl(
+                            img,
+                            i,
+                            lambs,
+                            noise_level=noise_level,
+                            model_type=model_type,
+                            input_type=input_type,
+                            critic_noise=critic_noise
+                        )
+                        best_curves[input_type] = best_curve
+                        best_psnrs[input_type] = best_psnr
+                        best_lambdas[input_type] = best_lamb
+                        best_ssims_curves[input_type] = best_ssim_curve
+                        best_ssims[input_type] = best_ssim
+
+                    # find which input_type had the overall highest PSNR
+                    winner = max(best_psnrs.items(), key=lambda kv: kv[1])
+                    best_input, top_psnr = winner
+                    top_lambda = best_lambdas[best_input]
+                    top_ssim = best_ssims[best_input]
+
+                    print(f"Best input type for {model_type} with {noise_level} noise: {best_input} with PSNR={top_psnr:.2f} dB, SSIM={top_ssim:.4f} and λ={top_lambda:.1e}")
+
+                    # now plot all three on one figure
+                    plt.figure(figsize=(6,4))
+                    for input_type, curve in best_curves.items():
+                        plt.plot(curve, label=input_type)
+                    plt.xlabel("Iterations")
+                    plt.ylabel("PSNR [dB]")
+                    plt.title(
+                        f"{model_type} ({noise_level} noise), λ={top_lambda:.1e}, PSNR={top_psnr:.2f} dB"
+                    )
+                    
+                    plt.legend()
+                    out_dir = f"results_img_more/DIP_dl_tdv/{model_type}/{noise_level}"
+                    os.makedirs(out_dir, exist_ok=True)
+                    plt.savefig(f"{out_dir}/psnr_compare_{model_type}_{noise_level}_img{i+1}_critic.png", dpi=200)
+                    plt.close()
+
+                    # Save the best SSIM curve
+                    plt.figure(figsize=(6,4))
+                    for input_type, curve in best_ssims_curves.items():
+                        plt.plot(curve, label=input_type)
+                    plt.xlabel("Iterations")
+                    plt.ylabel("SSIM")
+                    plt.title(
+                        f"{model_type} ({noise_level} noise), λ={top_lambda:.1e}, SSIM={top_ssim:.4f}"
+                    )
+                    
+                    plt.legend()
+                    plt.savefig(f"{out_dir}/ssim_compare_{model_type}_{noise_level}_img{i+1}_critic.png", dpi=200)
+                    plt.close()
+
+    print("All models processed successfully.")
